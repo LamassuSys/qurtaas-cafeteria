@@ -21,15 +21,22 @@ const SESSION_KEY = "ink_session";
 
 function loadUsers(): AppUser[] {
   try {
-    const raw = localStorage.getItem(USERS_KEY);
-    return raw ? JSON.parse(raw) : DEFAULT_USERS;
+    const stored: AppUser[] = JSON.parse(localStorage.getItem(USERS_KEY) ?? "[]");
+    // Merge any new default users that don't exist in storage yet
+    const existingUsernames = new Set(stored.map(u => u.username));
+    const merged = [...stored, ...DEFAULT_USERS.filter(u => !existingUsernames.has(u.username))];
+    localStorage.setItem(USERS_KEY, JSON.stringify(merged));
+    return merged;
   } catch { return DEFAULT_USERS; }
 }
 
 function loadPasswords(): Record<string, string> {
   try {
-    const raw = localStorage.getItem(PASS_KEY);
-    return raw ? JSON.parse(raw) : DEFAULT_PASSWORDS;
+    const stored: Record<string, string> = JSON.parse(localStorage.getItem(PASS_KEY) ?? "{}");
+    // Merge any new default passwords that don't exist yet
+    const merged = { ...DEFAULT_PASSWORDS, ...stored };
+    localStorage.setItem(PASS_KEY, JSON.stringify(merged));
+    return merged;
   } catch { return DEFAULT_PASSWORDS; }
 }
 
@@ -46,11 +53,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch { return null; }
   });
 
-  useEffect(() => {
-    // Seed defaults only once
-    if (!localStorage.getItem(USERS_KEY)) saveUsers(DEFAULT_USERS);
-    if (!localStorage.getItem(PASS_KEY))  savePasswords(DEFAULT_PASSWORDS);
-  }, []);
 
   const login = async (username: string, password: string) => {
     const found = users.find(u => u.username === username && u.active);
