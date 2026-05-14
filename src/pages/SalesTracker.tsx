@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { transactions, MENU_ITEMS, CATEGORIES } from "@/data/mockData";
+import { transactions } from "@/data/mockData";
+import { useMenu } from "@/data/menuStore";
 import type { Transaction } from "@/data/mockData";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,12 +18,15 @@ const CAT_COLORS: Record<string,string> = {
 export function SalesTracker() {
   const { user } = useAuth();
   const canRecord = user ? ROLE_CONFIG[user.role].canRecordSales : false;
+  const { items: MENU_ITEMS, categories } = useMenu();
+  const CATEGORIES = categories.map(c => c.name);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("All");
   const [dateFilter, setDateFilter] = useState("2026-05-14");
   const [showForm, setShowForm] = useState(false);
   const [localTx, setLocalTx] = useState<Transaction[]>([]);
-  const [form, setForm] = useState({ item: MENU_ITEMS[0].name, qty: 1 });
+  const activeItems = MENU_ITEMS.filter(m => m.active);
+  const [form, setForm] = useState({ item: activeItems[0]?.name ?? "", qty: 1 });
 
   const allTx = useMemo(() => [...localTx, ...transactions], [localTx]);
   const filtered = useMemo(() => allTx.filter(t => {
@@ -39,7 +43,8 @@ export function SalesTracker() {
   }), [filtered]);
 
   const addSale = () => {
-    const menuItem = MENU_ITEMS.find(m => m.name === form.item)!;
+    const menuItem = activeItems.find(m => m.name === form.item)!;
+    if (!menuItem) return;
     const qty = form.qty;
     const now = new Date();
     const pad = (n:number) => String(n).padStart(2,"0");
@@ -82,7 +87,7 @@ export function SalesTracker() {
               <div>
                 <label className="text-xs text-gray-400 block mb-1">Item</label>
                 <select value={form.item} onChange={e=>setForm({...form,item:e.target.value})} className="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg px-3 py-2">
-                  {MENU_ITEMS.map(m=><option key={m.id} value={m.name}>{m.emoji} {m.name} — ${m.price}</option>)}
+                  {activeItems.map(m=><option key={m.id} value={m.name}>{m.emoji} {m.name} — ${m.price}</option>)}
                 </select>
               </div>
               <div>

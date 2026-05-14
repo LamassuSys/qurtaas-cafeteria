@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard, ShoppingCart, BarChart3, TrendingUp,
   Brain, AlertTriangle, Megaphone, Package, ChevronLeft,
-  ChevronRight, Users
+  ChevronRight, Users, UtensilsCrossed
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoFull } from "@/components/Logo";
@@ -12,7 +12,7 @@ import { useAuth } from "@/auth/AuthContext";
 export type Page =
   | "dashboard" | "sales" | "reports" | "analytics"
   | "predictions" | "drawbacks" | "marketing" | "inventory"
-  | "users";
+  | "users" | "menu";
 
 const ALL_NAV: { id: Page; label: string; icon: LucideIcon }[] = [
   { id: "dashboard",   label: "Dashboard",     icon: LayoutDashboard },
@@ -24,6 +24,7 @@ const ALL_NAV: { id: Page; label: string; icon: LucideIcon }[] = [
   { id: "marketing",   label: "Marketing",     icon: Megaphone },
   { id: "inventory",   label: "Inventory",     icon: Package },
   { id: "users",       label: "Users",         icon: Users },
+  { id: "menu",        label: "Menu Manager",  icon: UtensilsCrossed },
 ];
 
 interface SidebarProps {
@@ -65,7 +66,7 @@ export function Sidebar({ current, onNavigate, collapsed, onToggle }: SidebarPro
           >
             <Icon size={17} className="shrink-0" />
             {!collapsed && <span>{label}</span>}
-            {!collapsed && id === "users" && (
+            {!collapsed && (id === "users" || id === "menu") && (
               <span className="ml-auto text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 rounded px-1.5 py-0.5 font-bold">SA</span>
             )}
           </button>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "@/auth/AuthContext";
+import { MenuProvider } from "@/data/menuStore";
 import { ROLE_CONFIG } from "@/auth/roles";
 import { Sidebar } from "@/components/Sidebar";
 import type { Page } from "@/components/Sidebar";
@@ -14,6 +15,7 @@ import { Drawbacks } from "@/pages/Drawbacks";
 import { Marketing } from "@/pages/Marketing";
 import { Inventory } from "@/pages/Inventory";
 import { UserManagement } from "@/pages/UserManagement";
+import { MenuManager } from "@/pages/MenuManager";
 
 const PAGE_MAP: Record<Page, React.ReactNode> = {
   dashboard:   <Dashboard />,
@@ -25,6 +27,7 @@ const PAGE_MAP: Record<Page, React.ReactNode> = {
   marketing:   <Marketing />,
   inventory:   <Inventory />,
   users:       <UserManagement />,
+  menu:        <MenuManager />,
 };
 
 function AppInner() {
@@ -64,7 +67,9 @@ function AppInner() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppInner />
+      <MenuProvider>
+        <AppInner />
+      </MenuProvider>
     </AuthProvider>
   );
 }
