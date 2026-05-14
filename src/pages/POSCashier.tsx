@@ -2,18 +2,19 @@ import { useState } from "react";
 import { useMenu } from "@/data/menuStore";
 import { useOrders, type OrderItem } from "@/data/ordersStore";
 import { useAuth } from "@/auth/AuthContext";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Minus, Trash2, ShoppingCart, CheckCircle, Search, User, FileText } from "lucide-react";
+import { useI18n } from "@/data/i18nStore";
 
 export function POSCashier() {
   const { user } = useAuth();
+  const { t, fmt } = useI18n();
   const { items, categories } = useMenu();
   const { createOrder } = useOrders();
 
-  const [catFilter, setCatFilter]     = useState("All");
+  const [catFilter, setCatFilter]     = useState("__all__");
   const [search, setSearch]           = useState("");
   const [cart, setCart]               = useState<OrderItem[]>([]);
   const [customerName, setCustomerName] = useState("");
@@ -22,7 +23,7 @@ export function POSCashier() {
 
   const activeItems = items.filter(i => i.active);
   const displayItems = activeItems.filter(i => {
-    const matchCat  = catFilter === "All" || i.category === catFilter;
+    const matchCat  = catFilter === "__all__" || i.category === catFilter;
     const matchSearch = !search || i.name.toLowerCase().includes(search.toLowerCase());
     return matchCat && matchSearch;
   });
@@ -65,14 +66,14 @@ export function POSCashier() {
         <div className="p-4 border-b border-gray-800 space-y-3 shrink-0">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-            <Input placeholder="Search menu…" value={search} onChange={e => setSearch(e.target.value)}
+            <Input placeholder={`${t("search")}…`} value={search} onChange={e => setSearch(e.target.value)}
               className="pl-8 bg-gray-800 border-gray-700 text-gray-200 text-sm" />
           </div>
           <div className="flex gap-1.5 flex-wrap">
-            {["All", ...categories.map(c => c.name)].map(c => (
-              <button key={c} onClick={() => setCatFilter(c)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${catFilter === c ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}>
-                {c}
+            {[{ key: "__all__", label: t("all") }, ...categories.map(c => ({ key: c.name, label: c.name }))].map(c => (
+              <button key={c.key} onClick={() => setCatFilter(c.key)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${catFilter === c.key ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}>
+                {c.label}
               </button>
             ))}
           </div>
@@ -116,10 +117,10 @@ export function POSCashier() {
         <div className="p-4 border-b border-gray-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <ShoppingCart size={16} className="text-blue-400" />
-            <span className="text-sm font-semibold text-gray-200">Current Order</span>
+            <span className="text-sm font-semibold text-gray-200">{t("current_order")}</span>
           </div>
           {cart.length > 0 && (
-            <button onClick={() => setCart([])} className="text-xs text-gray-500 hover:text-red-400 transition-colors">Clear</button>
+            <button onClick={() => setCart([])} className="text-xs text-gray-500 hover:text-red-400 transition-colors">{t("clear")}</button>
           )}
         </div>
 
@@ -127,12 +128,12 @@ export function POSCashier() {
         <div className="p-3 border-b border-gray-800 space-y-2 shrink-0">
           <div className="relative">
             <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-            <Input placeholder="Customer name (optional)" value={customerName} onChange={e => setCustomerName(e.target.value)}
+            <Input placeholder={t("customer_name")} value={customerName} onChange={e => setCustomerName(e.target.value)}
               className="pl-8 bg-gray-800 border-gray-700 text-gray-200 text-xs h-8" />
           </div>
           <div className="relative">
             <FileText size={13} className="absolute left-3 top-3 text-gray-500" />
-            <textarea placeholder="Order notes…" value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+            <textarea placeholder={t("order_notes")} value={notes} onChange={e => setNotes(e.target.value)} rows={2}
               className="w-full pl-8 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-gray-200 text-xs resize-none focus:outline-none focus:border-blue-500" />
           </div>
         </div>
@@ -142,7 +143,7 @@ export function POSCashier() {
           {cart.length === 0 ? (
             <div className="text-center py-8 text-gray-600">
               <ShoppingCart size={28} className="mx-auto mb-2 opacity-20" />
-              <p className="text-xs">Tap menu items to add</p>
+              <p className="text-xs">{t("tap_to_add")}</p>
             </div>
           ) : (
             cart.map(item => (
@@ -174,20 +175,16 @@ export function POSCashier() {
           {success && (
             <div className="flex items-center gap-2 bg-emerald-500/15 border border-emerald-500/30 rounded-xl px-3 py-2.5 animate-pulse">
               <CheckCircle size={16} className="text-emerald-400 shrink-0" />
-              <span className="text-sm text-emerald-400 font-medium">Order #{success.num} placed!</span>
+              <span className="text-sm text-emerald-400 font-medium">{t("order_placed")} #{success.num}</span>
             </div>
           )}
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">{itemCount} item{itemCount !== 1 ? "s" : ""}</span>
-            <span className="text-gray-400 font-medium">Total</span>
-          </div>
           <div className="flex justify-between items-baseline">
-            <span className="text-xs text-gray-500">SAR / USD</span>
-            <span className="text-2xl font-bold text-blue-400">${total.toFixed(2)}</span>
+            <span className="text-xs text-gray-500">{itemCount} {itemCount !== 1 ? "items" : "item"}</span>
+            <span className="text-2xl font-bold text-blue-400">{fmt(total)}</span>
           </div>
           <Button onClick={submitOrder} disabled={cart.length === 0}
             className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold text-sm h-11 rounded-xl">
-            Place Order →
+            {t("place_order")} →
           </Button>
         </div>
       </div>

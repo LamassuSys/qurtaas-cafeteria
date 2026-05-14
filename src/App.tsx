@@ -20,6 +20,7 @@ import { POSCashier } from "@/pages/POSCashier";
 import { Orders } from "@/pages/Orders";
 import { BaristaKDS } from "@/pages/BaristaKDS";
 import { OrdersProvider } from "@/data/ordersStore";
+import { I18nProvider, useI18n } from "@/data/i18nStore";
 
 const PAGE_MAP: Record<Page, React.ReactNode> = {
   dashboard:   <Dashboard />,
@@ -58,8 +59,10 @@ function AppInner() {
     if (allowed.includes(p)) setPage(p);
   };
 
+  const { isRTL } = useI18n();
+
   return (
-    <div className="flex h-screen bg-gray-950 text-gray-100 overflow-hidden">
+    <div className="flex h-screen bg-gray-950 text-gray-100 overflow-hidden" style={{ direction: isRTL ? "rtl" : "ltr" }}>
       <Sidebar current={page} onNavigate={navigate} collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <div className="flex flex-col flex-1 min-w-0">
         <TopBar page={page} />
@@ -73,12 +76,14 @@ function AppInner() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <MenuProvider>
-        <OrdersProvider>
-          <AppInner />
-        </OrdersProvider>
-      </MenuProvider>
-    </AuthProvider>
+    <I18nProvider>
+      <AuthProvider>
+        <MenuProvider>
+          <OrdersProvider>
+            <AppInner />
+          </OrdersProvider>
+        </MenuProvider>
+      </AuthProvider>
+    </I18nProvider>
   );
 }

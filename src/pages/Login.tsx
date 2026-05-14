@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useAuth } from "@/auth/AuthContext";
 import { Logo } from "@/components/Logo";
 import { Eye, EyeOff, LogIn } from "lucide-react";
+import { useI18n } from "@/data/i18nStore";
 
 export function Login() {
   const { login } = useAuth();
+  const { t, isRTL } = useI18n();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -21,7 +23,7 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4" dir={isRTL ? "rtl" : "ltr"}>
       {/* Background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
@@ -44,7 +46,7 @@ export function Login() {
             </div>
             <div className="mt-3 text-center">
               <p className="text-gray-300 text-sm font-medium">Management System</p>
-              <p className="text-gray-600 text-xs mt-0.5">Sign in to your account</p>
+              <p className="text-gray-600 text-xs mt-0.5">{t("sign_in")}</p>
             </div>
           </div>
 
@@ -52,7 +54,7 @@ export function Login() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
-                Username
+                {t("username")}
               </label>
               <input
                 type="text"
@@ -67,7 +69,7 @@ export function Login() {
 
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
-                Password
+                {t("password")}
               </label>
               <div className="relative">
                 <input
@@ -105,13 +107,13 @@ export function Login() {
               ) : (
                 <LogIn size={16} />
               )}
-              {loading ? "Signing in..." : "Sign In"}
+              {loading ? t("signing_in") : t("sign_in")}
             </button>
           </form>
 
           {/* Demo credentials hint */}
           <div className="mt-6 border-t border-gray-800 pt-5">
-            <p className="text-xs text-gray-600 text-center mb-3 uppercase tracking-wide font-semibold">Demo Credentials</p>
+            <p className="text-xs text-gray-600 text-center mb-3 uppercase tracking-wide font-semibold">{t("demo_creds")}</p>
             <div className="grid grid-cols-2 gap-2">
               {[
                 { role: "Super Admin",    user: "super_admin",  pass: "Admin@1234" },

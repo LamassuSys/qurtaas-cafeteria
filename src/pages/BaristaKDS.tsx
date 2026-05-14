@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useOrders, STATUS_META, type Order } from "@/data/ordersStore";
 import { useAuth } from "@/auth/AuthContext";
+import { useI18n } from "@/data/i18nStore";
 import { Clock, CheckCircle, ChefHat, Bell } from "lucide-react";
 
 function elapsed(iso: string) {
@@ -11,6 +12,7 @@ function elapsed(iso: string) {
 
 function KDSCard({ order, onAction, username }: { order: Order; onAction: () => void; username: string }) {
   const [, setTick] = useState(0);
+  const { t } = useI18n();
   useEffect(() => {
     const t = setInterval(() => setTick(v => v + 1), 1000);
     return () => clearInterval(t);
@@ -76,12 +78,12 @@ function KDSCard({ order, onAction, username }: { order: Order; onAction: () => 
               ? "bg-blue-600 hover:bg-blue-500 text-white"
               : "bg-emerald-600 hover:bg-emerald-500 text-white"
           }`}>
-          {order.status === "pending" ? "▶  Start Preparing" : "✓  Mark as Ready"}
+          {order.status === "pending" ? `▶  ${t("start_preparing")}` : `✓  ${t("mark_ready")}`}
         </button>
       )}
       {order.status === "ready" && (
         <div className="flex items-center justify-center gap-2 py-2 text-emerald-400 text-sm font-semibold">
-          <CheckCircle size={16} /> Waiting for pickup
+          <CheckCircle size={16} /> {t("waiting_pickup")}
         </div>
       )}
     </div>
@@ -90,6 +92,7 @@ function KDSCard({ order, onAction, username }: { order: Order; onAction: () => 
 
 export function BaristaKDS() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const { orders, updateStatus } = useOrders();
   const [, setTick] = useState(0);
 
@@ -118,7 +121,7 @@ export function BaristaKDS() {
       <div className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-2xl px-5 py-3">
         <div className="flex items-center gap-3">
           <ChefHat size={20} className="text-amber-400" />
-          <span className="font-bold text-gray-200">Kitchen Display</span>
+          <span className="font-bold text-gray-200">{t("kitchen_display")}</span>
           <span className="text-xs text-gray-500">·</span>
           <span className="text-xs text-gray-400">{user?.fullName}</span>
         </div>
@@ -141,8 +144,8 @@ export function BaristaKDS() {
       {activeOrders.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-gray-700 space-y-3">
           <Bell size={40} className="opacity-30" />
-          <p className="text-lg font-semibold">No active orders</p>
-          <p className="text-sm">New orders will appear here automatically</p>
+          <p className="text-lg font-semibold">{t("no_active_orders")}</p>
+          <p className="text-sm">{t("new_orders_appear")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">

@@ -9,26 +9,27 @@ import { cn } from "@/lib/utils";
 import { LogoFull } from "@/components/Logo";
 import { ROLE_CONFIG } from "@/auth/roles";
 import { useAuth } from "@/auth/AuthContext";
+import { useI18n, type TKey } from "@/data/i18nStore";
 
 export type Page =
   | "dashboard" | "sales" | "reports" | "analytics"
   | "predictions" | "drawbacks" | "marketing" | "inventory"
   | "users" | "menu" | "pos" | "orders" | "barista_kds";
 
-const ALL_NAV: { id: Page; label: string; icon: LucideIcon }[] = [
-  { id: "dashboard",   label: "Dashboard",     icon: LayoutDashboard },
-  { id: "pos",         label: "POS / Order",   icon: MonitorSmartphone },
-  { id: "orders",      label: "Orders",        icon: ClipboardList },
-  { id: "barista_kds", label: "Kitchen Display", icon: ChefHat },
-  { id: "sales",       label: "Sales Tracker", icon: ShoppingCart },
-  { id: "reports",     label: "Reports",       icon: BarChart3 },
-  { id: "analytics",   label: "Analytics",     icon: TrendingUp },
-  { id: "predictions", label: "Predictions",   icon: Brain },
-  { id: "drawbacks",   label: "Drawbacks",     icon: AlertTriangle },
-  { id: "marketing",   label: "Marketing",     icon: Megaphone },
-  { id: "inventory",   label: "Inventory",     icon: Package },
-  { id: "users",       label: "Users",         icon: Users },
-  { id: "menu",        label: "Menu Manager",  icon: UtensilsCrossed },
+const ALL_NAV: { id: Page; labelKey: TKey; icon: LucideIcon }[] = [
+  { id: "dashboard",   labelKey: "nav_dashboard",   icon: LayoutDashboard },
+  { id: "pos",         labelKey: "nav_pos",         icon: MonitorSmartphone },
+  { id: "orders",      labelKey: "nav_orders",      icon: ClipboardList },
+  { id: "barista_kds", labelKey: "nav_barista_kds", icon: ChefHat },
+  { id: "sales",       labelKey: "nav_sales",       icon: ShoppingCart },
+  { id: "reports",     labelKey: "nav_reports",     icon: BarChart3 },
+  { id: "analytics",   labelKey: "nav_analytics",   icon: TrendingUp },
+  { id: "predictions", labelKey: "nav_predictions", icon: Brain },
+  { id: "drawbacks",   labelKey: "nav_drawbacks",   icon: AlertTriangle },
+  { id: "marketing",   labelKey: "nav_marketing",   icon: Megaphone },
+  { id: "inventory",   labelKey: "nav_inventory",   icon: Package },
+  { id: "users",       labelKey: "nav_users",       icon: Users },
+  { id: "menu",        labelKey: "nav_menu",        icon: UtensilsCrossed },
 ];
 
 interface SidebarProps {
@@ -40,6 +41,7 @@ interface SidebarProps {
 
 export function Sidebar({ current, onNavigate, collapsed, onToggle }: SidebarProps) {
   const { user } = useAuth();
+  const { t } = useI18n();
   const allowedPages = user ? ROLE_CONFIG[user.role].pages : [];
   const navItems = ALL_NAV.filter(item => allowedPages.includes(item.id));
 
@@ -55,11 +57,11 @@ export function Sidebar({ current, onNavigate, collapsed, onToggle }: SidebarPro
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
-        {navItems.map(({ id, label, icon: Icon }) => (
+        {navItems.map(({ id, labelKey, icon: Icon }) => (
           <button
             key={id}
             onClick={() => onNavigate(id)}
-            title={collapsed ? label : undefined}
+            title={collapsed ? t(labelKey) : undefined}
             className={cn(
               "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
               current === id
@@ -69,7 +71,7 @@ export function Sidebar({ current, onNavigate, collapsed, onToggle }: SidebarPro
             )}
           >
             <Icon size={17} className="shrink-0" />
-            {!collapsed && <span>{label}</span>}
+            {!collapsed && <span>{t(labelKey)}</span>}
             {!collapsed && (id === "users" || id === "menu") && (
               <span className="ml-auto text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 rounded px-1.5 py-0.5 font-bold">SA</span>
             )}

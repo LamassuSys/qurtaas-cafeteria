@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { TrendingUp, ShoppingBag, DollarSign, Users } from "lucide-react";
+import { useI18n } from "@/data/i18nStore";
 
 export function Dashboard() {
+  const { t, fmt } = useI18n();
   const todayStr = "2026-05-14";
   const yesterdayStr = "2026-05-13";
   const todayTx = useMemo(() => transactions.filter(t => t.date === todayStr), []);
@@ -21,10 +23,10 @@ export function Dashboard() {
   const recentTx = transactions.filter(t => t.date === todayStr).slice(-8).reverse();
 
   const KPIs = [
-    { label: "Today's Revenue", value: `$${todayRevenue.toFixed(2)}`, sub: `${revenueChange >= 0 ? "+" : ""}${revenueChange.toFixed(1)}% vs yesterday`, icon: DollarSign, positive: revenueChange >= 0, color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20" },
-    { label: "Orders Today", value: todayTx.length.toString(), sub: `${yesterdayTx.length} yesterday`, icon: ShoppingBag, positive: todayTx.length >= yesterdayTx.length, color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/20" },
-    { label: "Avg. Order Value", value: `$${avgOrder.toFixed(2)}`, sub: "per transaction today", icon: TrendingUp, positive: true, color: "text-purple-400", bg: "bg-purple-500/10 border-purple-500/20" },
-    { label: "30-Day Revenue", value: `$${(totalRevenue30/1000).toFixed(1)}k`, sub: `${last30.reduce((s,d)=>s+d.orders,0).toLocaleString()} total orders`, icon: Users, positive: true, color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20" },
+    { label: t("todays_revenue"), value: fmt(todayRevenue), sub: `${revenueChange >= 0 ? "+" : ""}${revenueChange.toFixed(1)}% ${t("vs_yesterday")}`, icon: DollarSign, positive: revenueChange >= 0, color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20" },
+    { label: t("orders_today"), value: todayTx.length.toString(), sub: `${yesterdayTx.length} yesterday`, icon: ShoppingBag, positive: todayTx.length >= yesterdayTx.length, color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/20" },
+    { label: t("avg_order_value"), value: fmt(avgOrder), sub: t("per_tx"), icon: TrendingUp, positive: true, color: "text-purple-400", bg: "bg-purple-500/10 border-purple-500/20" },
+    { label: t("revenue_30d"), value: fmt(totalRevenue30, true), sub: `${last30.reduce((s,d)=>s+d.orders,0).toLocaleString()} ${t("total_orders")}`, icon: Users, positive: true, color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20" },
   ];
 
   return (
@@ -53,7 +55,7 @@ export function Dashboard() {
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="bg-gray-900 border-gray-800 lg:col-span-2">
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-gray-300">7-Day Revenue Trend</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-gray-300">{t("revenue_trend")}</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={last7} margin={{ top:5, right:10, left:-20, bottom:0 }}>
@@ -61,14 +63,14 @@ export function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2937"/>
                 <XAxis dataKey="date" tickFormatter={d=>d.slice(5)} tick={{fill:"#6b7280",fontSize:11}}/>
                 <YAxis tick={{fill:"#6b7280",fontSize:11}}/>
-                <Tooltip contentStyle={{background:"#111827",border:"1px solid #374151",borderRadius:8,fontSize:12}} formatter={(v)=>[`$${(v as number).toFixed(2)}`,"Revenue"]}/>
+                <Tooltip contentStyle={{background:"#111827",border:"1px solid #374151",borderRadius:8,fontSize:12}} formatter={(v)=>[fmt(v as number),"Revenue"]}/>
                 <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fill="url(#revGrad)" strokeWidth={2} dot={{fill:"#3b82f6",r:3}}/>
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
         <Card className="bg-gray-900 border-gray-800">
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-gray-300">Top Items (30 days)</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-gray-300">{t("top_items")}</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-3">
               {topItems.map((item, i) => {
@@ -91,7 +93,7 @@ export function Dashboard() {
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="bg-gray-900 border-gray-800">
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-gray-300">Orders by Hour</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-gray-300">{t("orders_by_hour")}</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={hourlySummary} margin={{top:5,right:10,left:-20,bottom:0}}>
@@ -107,7 +109,7 @@ export function Dashboard() {
         <Card className="bg-gray-900 border-gray-800">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold text-gray-300">Live Sales Feed</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-300">{t("live_feed")}</CardTitle>
               <span className="flex items-center gap-1.5 text-xs text-blue-400"><span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"/>Today</span>
             </div>
           </CardHeader>
