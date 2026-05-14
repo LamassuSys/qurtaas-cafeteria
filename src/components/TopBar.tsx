@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, X, LogOut, ChevronDown, Globe, DollarSign } from "lucide-react";
+import { Bell, X, LogOut, ChevronDown, Globe, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/AuthContext";
@@ -32,11 +32,14 @@ interface TopBarProps { page: string; }
 
 export function TopBar({ page }: TopBarProps) {
   const { user, logout } = useAuth();
-  const { t, lang, setLang, currency, setCurrency, isRTL } = useI18n();
+  const { t, lang, setLang, currency, setCurrency, exchangeRate, setExchangeRate, isRTL } = useI18n();
   const [notifOpen,  setNotifOpen]  = useState(false);
   const [userOpen,   setUserOpen]   = useState(false);
   const [settOpen,   setSettOpen]   = useState(false);
   const [dismissed,  setDismissed]  = useState<number[]>([]);
+  const [rateInput,  setRateInput]  = useState(String(exchangeRate));
+
+  const isSuperAdmin = user?.role === "super_admin";
   const visible = ALERTS.filter(a => !dismissed.includes(a.id));
 
   const roleCfg = user ? ROLE_CONFIG[user.role] : null;
@@ -94,9 +97,46 @@ export function TopBar({ page }: TopBarProps) {
                     ))}
                   </div>
                   {currency === "IQD" && (
-                    <p className="text-[10px] text-gray-600 mt-1.5 text-center">1 USD = 1,310 د.ع</p>
+                    <p className="text-[10px] text-gray-600 mt-1.5 text-center">1 USD = {exchangeRate.toLocaleString()} د.ع</p>
                   )}
                 </div>
+
+                {/* Exchange Rate — Super Admin only */}
+                {isSuperAdmin && (
+                  <div className="border-t border-gray-700 pt-3">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                      <RefreshCw size={10} /> Exchange Rate
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-500 shrink-0">1 USD =</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={rateInput}
+                        onChange={e => setRateInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            const r = parseFloat(rateInput);
+                            if (r > 0) setExchangeRate(r);
+                          }
+                        }}
+                        className="flex-1 min-w-0 bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500"
+                      />
+                      <span className="text-xs text-gray-500 shrink-0">د.ع</span>
+                      <button
+                        onClick={() => {
+                          const r = parseFloat(rateInput);
+                          if (r > 0) setExchangeRate(r);
+                        }}
+                        className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-lg transition-colors shrink-0 font-medium"
+                      >
+                        Set
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-gray-600 mt-1.5">Applies system-wide · saved automatically</p>
+                  </div>
+                )}
               </div>
             </div>
           )}

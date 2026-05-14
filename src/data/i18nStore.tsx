@@ -3,8 +3,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 export type Lang = "en" | "ar";
 export type Currency = "USD" | "IQD";
 
-// 1 USD = X IQD
-const IQD_RATE = 1310;
+const DEFAULT_IQD_RATE = 1310;
 
 // ── Translations ───────────────────────────────────────────────
 const T = {
@@ -202,27 +201,39 @@ export type TKey = keyof typeof T.en;
 
 // ── Context ────────────────────────────────────────────────────
 interface I18nCtx {
-  lang:        Lang;
-  currency:    Currency;
-  isRTL:       boolean;
-  setLang:     (l: Lang) => void;
-  setCurrency: (c: Currency) => void;
-  t:           (key: TKey) => string;
-  fmt:         (usd: number, compact?: boolean) => string;
+  lang:            Lang;
+  currency:        Currency;
+  exchangeRate:    number;        // IQD per 1 USD
+  isRTL:           boolean;
+  setLang:         (l: Lang) => void;
+  setCurrency:     (c: Currency) => void;
+  setExchangeRate: (r: number) => void;
+  t:               (key: TKey) => string;
+  fmt:             (iqd: number, compact?: boolean) => string;
 }
 
 const Ctx = createContext<I18nCtx | null>(null);
 const LS_LANG = "ink_lang";
 const LS_CUR  = "ink_currency";
+const LS_RATE = "ink_exchange_rate";
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang,     setLangState]     = useState<Lang>(()     => (localStorage.getItem(LS_LANG)  as Lang)     ?? "en");
-  const [currency, setCurrencyState] = useState<Currency>(() => (localStorage.getItem(LS_CUR)   as Currency) ?? "IQD");
+  const [lang,         setLangState]     = useState<Lang>(()     => (localStorage.getItem(LS_LANG)  as Lang)     ?? "en");
+  const [currency,     setCurrencyState] = useState<Currency>(() => (localStorage.getItem(LS_CUR)   as Currency) ?? "IQD");
+  const [exchangeRate, setRateState]     = useState<number>(() => {
+    const stored = parseFloat(localStorage.getItem(LS_RATE) ?? "");
+    return isNaN(stored) || stored <= 0 ? DEFAULT_IQD_RATE : stored;
+  });
 
   const isRTL = lang === "ar";
 
-  const setLang = (l: Lang) => { setLangState(l); localStorage.setItem(LS_LANG, l); };
-  const setCurrency = (c: Currency) => { setCurrencyState(c); localStorage.setItem(LS_CUR, c); };
+  const setLang         = (l: Lang)     => { setLangState(l);     localStorage.setItem(LS_LANG, l); };
+  const setCurrency     = (c: Currency) => { setCurrencyState(c); localStorage.setItem(LS_CUR, c); };
+  const setExchangeRate = (r: number)   => {
+    const safe = r > 0 ? r : DEFAULT_IQD_RATE;
+    setRateState(safe);
+    localStorage.setItem(LS_RATE, String(safe));
+  };
 
   // Apply dir + font to <html>
   useEffect(() => {
@@ -235,22 +246,21 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const t = (key: TKey): string => T[lang][key] ?? T.en[key] ?? key;
 
-  // All prices are stored natively in IQD; fmt() converts to USD for display when needed
+  // All prices are stored natively in IQD; fmt() converts to USD using the live exchange rate
   const fmt = (iqd: number, compact = false): string => {
     if (currency === "IQD") {
       if (compact && iqd >= 1_000_000) return `${(iqd / 1_000_000).toFixed(1)}M د.ع`;
       if (compact && iqd >= 1_000)     return `${(iqd / 1_000).toFixed(0)}K د.ع`;
       return `${Math.round(iqd).toLocaleString()} د.ع`;
     }
-    // Convert IQD → USD
-    const usd = iqd / IQD_RATE;
+    // Convert IQD → USD using the admin-configurable rate
+    const usd = iqd / exchangeRate;
     if (compact && usd >= 1000) return `$${(usd / 1000).toFixed(1)}k`;
-    if (compact && usd >= 1)    return `$${usd.toFixed(2)}`;
     return `$${usd.toFixed(2)}`;
   };
 
   return (
-    <Ctx.Provider value={{ lang, currency, isRTL, setLang, setCurrency, t, fmt }}>
+    <Ctx.Provider value={{ lang, currency, exchangeRate, isRTL, setLang, setCurrency, setExchangeRate, t, fmt }}>
       {children}
     </Ctx.Provider>
   );
