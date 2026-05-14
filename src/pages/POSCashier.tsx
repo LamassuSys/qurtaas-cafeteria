@@ -97,7 +97,7 @@ export function POSCashier() {
                   <div className="text-2xl mb-2">{item.emoji}</div>
                   <p className="text-sm font-semibold text-gray-200 leading-tight mb-1">{item.name}</p>
                   <Badge className={`text-[10px] px-1.5 py-0 mb-2 ${catColor(item.category)}`}>{item.category}</Badge>
-                  <p className="text-base font-bold text-blue-400">${item.price.toFixed(2)}</p>
+                  <p className="text-base font-bold text-blue-400">{fmt(item.price)}</p>
                 </button>
               );
             })}
@@ -151,7 +151,7 @@ export function POSCashier() {
                 <span className="text-lg shrink-0">{item.emoji}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-gray-200 truncate">{item.name}</p>
-                  <p className="text-xs text-blue-400">${(item.price * item.qty).toFixed(2)}</p>
+                  <p className="text-xs text-blue-400">{fmt(item.price * item.qty)}</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => updateQty(item.menuItemId, -1)}

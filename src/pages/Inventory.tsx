@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Search, AlertTriangle, Package, CheckCircle, TrendingDown } from "lucide-react";
+import { useI18n } from "@/data/i18nStore";
 
 const STATUS_CONFIG = {
   low:    { label: "Low Stock",  color: "bg-red-500/20 text-red-400",     icon: AlertTriangle, bar: "bg-red-500"    },
@@ -15,6 +16,7 @@ const STATUS_CONFIG = {
 function maxOf(item: typeof inventoryData[number]) { return Math.max(item.reorderLevel * 5, item.stock + 1); }
 
 export function Inventory() {
+  const { fmt } = useI18n();
   const [search, setSearch]         = useState("");
   const [statusFilter, setStatus]   = useState<"all"|"low"|"medium"|"ok">("all");
   const [sortBy, setSortBy]         = useState<"name"|"stock"|"value">("stock");
@@ -43,7 +45,7 @@ export function Inventory() {
           { label: "Total SKUs",  value: inventoryData.length.toString(), color: "text-blue-400",    icon: Package      },
           { label: "Low Stock",   value: lowCount.toString(),             color: "text-red-400",     icon: AlertTriangle },
           { label: "Moderate",    value: medCount.toString(),             color: "text-amber-400",   icon: TrendingDown  },
-          { label: "Stock Value", value: `$${totalValue.toFixed(0)}`,    color: "text-emerald-400", icon: CheckCircle   },
+          { label: "Stock Value", value: fmt(totalValue, true),           color: "text-emerald-400", icon: CheckCircle   },
         ].map(({ label, value, color, icon: Icon }) => (
           <Card key={label} className="bg-gray-900 border-gray-800">
             <CardContent className="p-4">
@@ -120,8 +122,8 @@ export function Inventory() {
                       <td className={`px-4 py-3 text-xs font-semibold ${item.daysLeft <= 2 ? "text-red-400" : item.daysLeft <= 5 ? "text-amber-400" : "text-emerald-400"}`}>
                         {item.daysLeft}d
                       </td>
-                      <td className="px-4 py-3 text-gray-400 text-xs">${item.cost.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-blue-400 font-semibold">${(item.stock * item.cost).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-gray-400 text-xs">{fmt(item.cost)}</td>
+                      <td className="px-4 py-3 text-blue-400 font-semibold">{fmt(item.stock * item.cost)}</td>
                       <td className="px-4 py-3 w-32">
                         <div className="flex items-center gap-2">
                           <div className="h-1.5 flex-1 bg-gray-700 rounded-full overflow-hidden">
@@ -191,7 +193,7 @@ export function Inventory() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-blue-400 font-semibold">${cost.toFixed(2)}</p>
+                        <p className="text-sm text-blue-400 font-semibold">{fmt(cost)}</p>
                         <Badge className={`text-xs px-1.5 py-0 ${cfg.color}`}>{cfg.label}</Badge>
                       </div>
                     </div>
@@ -207,7 +209,7 @@ export function Inventory() {
             <div className="mt-3 pt-3 border-t border-gray-800 flex justify-between text-xs">
               <span className="text-gray-500">Estimated reorder cost:</span>
               <span className="text-blue-400 font-semibold">
-                ${inventoryData.filter(i => i.status !== "ok").reduce((s, i) => s + Math.max(0, maxOf(i) - i.stock) * i.cost, 0).toFixed(2)}
+                {fmt(inventoryData.filter(i => i.status !== "ok").reduce((s, i) => s + Math.max(0, maxOf(i) - i.stock) * i.cost, 0))}
               </span>
             </div>
           </CardContent>

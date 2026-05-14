@@ -2,8 +2,10 @@ import { itemSummary, categorySummary, dailySummary, hourlySummary } from "@/dat
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts";
+import { useI18n } from "@/data/i18nStore";
 
 export function Analytics() {
+  const { fmt } = useI18n();
   const sorted = [...itemSummary].sort((a,b)=>b.revenue-a.revenue);
   const topPerformers = sorted.slice(0,5);
   const slowMoving = sorted.slice(-4).reverse();
@@ -24,7 +26,7 @@ export function Analytics() {
     <div className="p-6 space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          {label:"Avg Daily Revenue",value:`$${avgDailyRevenue.toFixed(2)}`,color:"text-blue-400"},
+          {label:"Avg Daily Revenue",value:fmt(avgDailyRevenue),color:"text-blue-400"},
           {label:"Overall Margin",value:`${((totalProfit/totalRevenue)*100).toFixed(1)}%`,color:"text-emerald-400"},
           {label:"Total Orders (35d)",value:totalOrders.toLocaleString(),color:"text-purple-400"},
           {label:"Avg Items/Order",value:(totalOrders>0?(itemSummary.reduce((s,i)=>s+i.qty,0)/totalOrders).toFixed(1):"0"),color:"text-amber-400"},
@@ -66,14 +68,14 @@ export function Analytics() {
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-medium text-gray-200">{cat.name}</span>
                       <div className="flex gap-2 text-xs">
-                        <span className="text-blue-400">${cat.revenue.toFixed(0)}</span>
+                        <span className="text-blue-400">{fmt(cat.revenue)}</span>
                         <span className="text-gray-500">|</span>
                         <span className="text-emerald-400">{margin.toFixed(1)}% margin</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
                       <span>{cat.orders.toLocaleString()} items sold</span>
-                      <span>Profit: ${cat.profit.toFixed(0)}</span>
+                      <span>Profit: {fmt(cat.profit)}</span>
                     </div>
                   </div>
                 );
@@ -92,7 +94,7 @@ export function Analytics() {
                 <div key={item.name} className="flex items-center gap-3 py-1.5 border-b border-gray-800 last:border-0">
                   <span className="text-lg font-bold text-gray-600 w-6">#{i+1}</span>
                   <div className="flex-1"><p className="text-sm text-gray-200 font-medium">{item.name}</p><p className="text-xs text-gray-500">{item.qty.toLocaleString()} units · {item.category}</p></div>
-                  <div className="text-right"><p className="text-sm text-blue-400 font-semibold">${item.revenue.toFixed(0)}</p><p className="text-xs text-emerald-400">${item.profit.toFixed(0)} profit</p></div>
+                  <div className="text-right"><p className="text-sm text-blue-400 font-semibold">{fmt(item.revenue)}</p><p className="text-xs text-emerald-400">{fmt(item.profit)} profit</p></div>
                 </div>
               ))}
             </div>
@@ -108,7 +110,7 @@ export function Analytics() {
                 return (
                   <div key={item.name} className="flex items-center gap-3 py-1.5 border-b border-gray-800 last:border-0">
                     <div className="flex-1"><p className="text-sm text-gray-200 font-medium">{item.name}</p><p className="text-xs text-gray-500">{item.qty.toLocaleString()} units · {item.category}</p></div>
-                    <div className="text-right"><p className="text-sm text-amber-400 font-semibold">${item.revenue.toFixed(0)}</p><p className="text-xs text-gray-500">{margin.toFixed(1)}% margin</p></div>
+                    <div className="text-right"><p className="text-sm text-amber-400 font-semibold">{fmt(item.revenue)}</p><p className="text-xs text-gray-500">{margin.toFixed(1)}% margin</p></div>
                   </div>
                 );
               })}

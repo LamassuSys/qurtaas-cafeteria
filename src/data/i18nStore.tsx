@@ -217,7 +217,7 @@ const LS_CUR  = "ink_currency";
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang,     setLangState]     = useState<Lang>(()     => (localStorage.getItem(LS_LANG)  as Lang)     ?? "en");
-  const [currency, setCurrencyState] = useState<Currency>(() => (localStorage.getItem(LS_CUR)   as Currency) ?? "USD");
+  const [currency, setCurrencyState] = useState<Currency>(() => (localStorage.getItem(LS_CUR)   as Currency) ?? "IQD");
 
   const isRTL = lang === "ar";
 
@@ -235,14 +235,17 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const t = (key: TKey): string => T[lang][key] ?? T.en[key] ?? key;
 
-  const fmt = (usd: number, compact = false): string => {
+  // All prices are stored natively in IQD; fmt() converts to USD for display when needed
+  const fmt = (iqd: number, compact = false): string => {
     if (currency === "IQD") {
-      const iqd = usd * IQD_RATE;
       if (compact && iqd >= 1_000_000) return `${(iqd / 1_000_000).toFixed(1)}M د.ع`;
       if (compact && iqd >= 1_000)     return `${(iqd / 1_000).toFixed(0)}K د.ع`;
       return `${Math.round(iqd).toLocaleString()} د.ع`;
     }
+    // Convert IQD → USD
+    const usd = iqd / IQD_RATE;
     if (compact && usd >= 1000) return `$${(usd / 1000).toFixed(1)}k`;
+    if (compact && usd >= 1)    return `$${usd.toFixed(2)}`;
     return `$${usd.toFixed(2)}`;
   };
 

@@ -1,14 +1,15 @@
+// All prices stored natively in IQD
 export const MENU_ITEMS = [
-  { id: 1, name: "Coffee",   category: "Beverages", price: 2.5,  cost: 0.6,  emoji: "☕" },
-  { id: 2, name: "Tea",      category: "Beverages", price: 1.8,  cost: 0.3,  emoji: "🍵" },
-  { id: 3, name: "Juice",    category: "Beverages", price: 3.2,  cost: 0.9,  emoji: "🍊" },
-  { id: 4, name: "Water",    category: "Beverages", price: 1.0,  cost: 0.1,  emoji: "💧" },
-  { id: 5, name: "Sandwich", category: "Snacks",    price: 4.5,  cost: 1.8,  emoji: "🥪" },
-  { id: 6, name: "Salad",    category: "Healthy",   price: 5.5,  cost: 2.2,  emoji: "🥗" },
-  { id: 7, name: "Cake",     category: "Desserts",  price: 3.8,  cost: 1.2,  emoji: "🍰" },
-  { id: 8, name: "Pasta",    category: "Mains",     price: 7.5,  cost: 2.5,  emoji: "🍝" },
-  { id: 9, name: "Burger",   category: "Mains",     price: 8.0,  cost: 3.0,  emoji: "🍔" },
-  { id: 10, name: "Pizza",   category: "Mains",     price: 9.0,  cost: 3.5,  emoji: "🍕" },
+  { id: 1, name: "Coffee",   category: "Beverages", price: 3500,  cost: 800,  emoji: "☕" },
+  { id: 2, name: "Tea",      category: "Beverages", price: 2500,  cost: 400,  emoji: "🍵" },
+  { id: 3, name: "Juice",    category: "Beverages", price: 4000,  cost: 1000, emoji: "🍊" },
+  { id: 4, name: "Water",    category: "Beverages", price: 1500,  cost: 200,  emoji: "💧" },
+  { id: 5, name: "Sandwich", category: "Snacks",    price: 6000,  cost: 2000, emoji: "🥪" },
+  { id: 6, name: "Salad",    category: "Healthy",   price: 7500,  cost: 2500, emoji: "🥗" },
+  { id: 7, name: "Cake",     category: "Desserts",  price: 5000,  cost: 1500, emoji: "🍰" },
+  { id: 8, name: "Pasta",    category: "Mains",     price: 10000, cost: 3500, emoji: "🍝" },
+  { id: 9, name: "Burger",   category: "Mains",     price: 10500, cost: 3500, emoji: "🍔" },
+  { id: 10, name: "Pizza",   category: "Mains",     price: 12000, cost: 4500, emoji: "🍕" },
 ];
 
 export const CATEGORIES = ["Beverages", "Snacks", "Healthy", "Desserts", "Mains"];

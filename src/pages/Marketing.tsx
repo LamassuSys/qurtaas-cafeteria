@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Megaphone, Gift, Star, Zap, Calendar, TrendingUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis } from "recharts";
+import { useI18n } from "@/data/i18nStore";
 
 export function Marketing() {
+  const { fmt } = useI18n();
   const totalRevenue = dailySummary.reduce((s, d) => s + d.revenue, 0);
   const topItems = [...itemSummary].sort((a, b) => b.revenue - a.revenue).slice(0, 5);
   const slowItems = [...itemSummary].sort((a, b) => a.revenue - b.revenue).slice(0, 3);
@@ -106,7 +108,7 @@ export function Marketing() {
     <div className="p-6 space-y-4">
       <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl px-5 py-3 text-xs text-gray-400 flex flex-wrap gap-4">
         <span>🎯 <span className="text-blue-400 font-medium">6 Campaigns</span> ready to launch</span>
-        <span>📈 <span className="text-blue-400 font-medium">Projected Uplift:</span> +18% avg daily revenue (~${projWith.toFixed(0)}/day)</span>
+        <span>📈 <span className="text-blue-400 font-medium">Projected Uplift:</span> +18% avg daily revenue (~{fmt(projWith)}/day)</span>
         <span>⚡ <span className="text-blue-400 font-medium">3 campaigns</span> can start immediately (zero cost)</span>
         <span>🏆 <span className="text-blue-400 font-medium">Top Opportunity:</span> Slow Item Revival (+80%)</span>
       </div>

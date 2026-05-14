@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Pencil, Trash2, X, Check, Tag, ShoppingBag, Search } from "lucide-react";
+import { useI18n } from "@/data/i18nStore";
 
 const CAT_COLORS = [
   "bg-blue-500/20 text-blue-400",
@@ -95,6 +96,7 @@ function ItemForm({ initial, categories, onSave, onCancel }: {
   onSave: (data: Omit<MenuItem, "id" | "custom">) => void;
   onCancel: () => void;
 }) {
+  const { fmt } = useI18n();
   const [name,     setName]     = useState(initial?.name     ?? "");
   const [category, setCategory] = useState(initial?.category ?? (categories[0]?.name ?? ""));
   const [price,    setPrice]    = useState(String(initial?.price ?? ""));
@@ -138,14 +140,14 @@ function ItemForm({ initial, categories, onSave, onCancel }: {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Selling Price ($)</label>
-            <Input type="number" min="0" step="0.01" placeholder="0.00" value={price}
+            <label className="text-xs text-gray-400 block mb-1">Selling Price (IQD)</label>
+            <Input type="number" min="0" step="1" placeholder="0" value={price}
               onChange={e => setPrice(e.target.value)}
               className="bg-gray-700 border-gray-600 text-gray-200" />
           </div>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Cost Price ($)</label>
-            <Input type="number" min="0" step="0.01" placeholder="0.00" value={cost}
+            <label className="text-xs text-gray-400 block mb-1">Cost Price (IQD)</label>
+            <Input type="number" min="0" step="1" placeholder="0" value={cost}
               onChange={e => setCost(e.target.value)}
               className="bg-gray-700 border-gray-600 text-gray-200" />
           </div>
@@ -155,7 +157,7 @@ function ItemForm({ initial, categories, onSave, onCancel }: {
           <div className="flex items-center gap-3 text-xs">
             <span className="text-gray-500">Margin:</span>
             <span className={margin >= 50 ? "text-emerald-400 font-semibold" : margin >= 30 ? "text-amber-400 font-semibold" : "text-red-400 font-semibold"}>
-              {margin}% (${(priceN - costN).toFixed(2)} profit/unit)
+              {margin}% ({fmt(priceN - costN)} profit/unit)
             </span>
           </div>
         )}
@@ -187,6 +189,7 @@ function ItemForm({ initial, categories, onSave, onCancel }: {
 
 // ── Main Page ──────────────────────────────────────────────────
 export function MenuManager() {
+  const { fmt } = useI18n();
   const { items, categories, addItem, updateItem, deleteItem, addCategory, updateCategory, deleteCategory } = useMenu();
 
   const [tab, setTab] = useState<"items" | "categories">("items");
@@ -325,11 +328,11 @@ export function MenuManager() {
                     <div className="grid grid-cols-3 gap-2 text-center mt-3">
                       <div className="bg-gray-800 rounded-lg py-1.5">
                         <p className="text-xs text-gray-500">Price</p>
-                        <p className="text-sm font-bold text-blue-400">${item.price.toFixed(2)}</p>
+                        <p className="text-sm font-bold text-blue-400">{fmt(item.price)}</p>
                       </div>
                       <div className="bg-gray-800 rounded-lg py-1.5">
                         <p className="text-xs text-gray-500">Cost</p>
-                        <p className="text-sm font-bold text-gray-300">${item.cost.toFixed(2)}</p>
+                        <p className="text-sm font-bold text-gray-300">{fmt(item.cost)}</p>
                       </div>
                       <div className="bg-gray-800 rounded-lg py-1.5">
                         <p className="text-xs text-gray-500">Margin</p>

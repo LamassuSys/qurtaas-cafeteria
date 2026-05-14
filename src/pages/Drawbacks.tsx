@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, TrendingDown, Clock, Package, DollarSign, Users } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, LineChart, Line, ReferenceLine } from "recharts";
+import { useI18n } from "@/data/i18nStore";
 
 export function Drawbacks() {
+  const { fmt } = useI18n();
   const sorted = [...itemSummary].sort((a, b) => a.revenue - b.revenue);
   const slowItems = sorted.slice(0, 4);
 
@@ -42,13 +44,13 @@ export function Drawbacks() {
     {
       icon: TrendingDown, color: "text-red-400", bg: "bg-red-500/10 border-red-500/20",
       severity: "High", title: "Weekend Revenue Drop",
-      value: `-${weekendDip.toFixed(0)}%`, desc: `Weekend avg ($${avgWeekend.toFixed(0)}) is ${weekendDip.toFixed(0)}% below weekday avg ($${avgWeekday.toFixed(0)}). Significant revenue loss on Sat/Sun.`,
+      value: `-${weekendDip.toFixed(0)}%`, desc: `Weekend avg (${fmt(avgWeekend)}) is ${weekendDip.toFixed(0)}% below weekday avg (${fmt(avgWeekday)}). Significant revenue loss on Sat/Sun.`,
       action: "Consider weekend-only promotions or reduced operating hours to cut fixed costs.",
     },
     {
       icon: Package, color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20",
       severity: "Medium", title: "Slow-Moving Menu Items",
-      value: `${slowItems.length} items`, desc: `${slowItems.map(i => i.name).join(", ")} generate under $${Math.round(slowItems[slowItems.length-1].revenue)} total revenue over 35 days.`,
+      value: `${slowItems.length} items`, desc: `${slowItems.map(i => i.name).join(", ")} generate under ${fmt(slowItems[slowItems.length-1]?.revenue ?? 0)} total revenue over 35 days.`,
       action: "Bundle slow items with bestsellers as combo deals, or replace with higher-demand alternatives.",
     },
     {
@@ -133,7 +135,7 @@ export function Drawbacks() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                 <XAxis dataKey="date" tick={{ fill: "#6b7280", fontSize: 10 }} interval={4} />
                 <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 8, fontSize: 12 }} formatter={(v) => [`$${(v as number).toFixed(0)}`]} />
+                <Tooltip contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 8, fontSize: 12 }} formatter={(v) => [fmt(v as number)]} />
                 <ReferenceLine y={Math.round(avgDaily)} stroke="#ef4444" strokeDasharray="4 2" label={{ value: "Avg", fill: "#ef4444", fontSize: 10 }} />
                 <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} dot={false} name="Revenue" />
               </LineChart>
@@ -180,7 +182,7 @@ export function Drawbacks() {
                     <div className="h-full rounded-full" style={{ width: `${share}%`, background: isLow ? "#ef4444" : "#3b82f6" }} />
                   </div>
                   <div className="flex justify-between mt-1.5 text-xs text-gray-500">
-                    <span>${cat.revenue.toFixed(0)} revenue</span>
+                    <span>{fmt(cat.revenue)} revenue</span>
                     <span className={isLow ? "text-red-400" : "text-emerald-400"}>{margin.toFixed(1)}% margin</span>
                   </div>
                 </div>

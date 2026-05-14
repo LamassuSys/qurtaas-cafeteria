@@ -4,10 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from "recharts";
 import { Download } from "lucide-react";
+import { useI18n } from "@/data/i18nStore";
 
 const PIE_COLORS = ["#3b82f6","#10b981","#f59e0b","#ec4899","#f97316"];
 
 export function Reports() {
+  const { fmt } = useI18n();
   const [range, setRange] = useState<7|30>(30);
   const data = dailySummary.slice(-range);
 
@@ -43,7 +45,7 @@ export function Reports() {
               <CartesianGrid strokeDasharray="3 3" stroke="#1f2937"/>
               <XAxis dataKey="date" tickFormatter={d=>d.slice(5)} tick={{fill:"#6b7280",fontSize:11}}/>
               <YAxis tick={{fill:"#6b7280",fontSize:11}}/>
-              <Tooltip contentStyle={{background:"#111827",border:"1px solid #374151",borderRadius:8,fontSize:12}} formatter={(v,name)=>[`$${(v as number).toFixed(2)}`,name as string]}/>
+              <Tooltip contentStyle={{background:"#111827",border:"1px solid #374151",borderRadius:8,fontSize:12}} formatter={(v,name)=>[fmt(v as number),name as string]}/>
               <Legend wrapperStyle={{fontSize:12,color:"#9ca3af"}}/>
               <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} dot={false} name="Revenue"/>
               <Line type="monotone" dataKey="profit" stroke="#10b981" strokeWidth={2} dot={false} name="Profit"/>
@@ -61,7 +63,7 @@ export function Reports() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2937"/>
                 <XAxis dataKey="week" tick={{fill:"#6b7280",fontSize:11}}/>
                 <YAxis tick={{fill:"#6b7280",fontSize:11}}/>
-                <Tooltip contentStyle={{background:"#111827",border:"1px solid #374151",borderRadius:8,fontSize:12}} formatter={(v)=>[`$${(v as number).toFixed(2)}`]}/>
+                <Tooltip contentStyle={{background:"#111827",border:"1px solid #374151",borderRadius:8,fontSize:12}} formatter={(v)=>[fmt(v as number)]}/>
                 <Bar dataKey="revenue" fill="#3b82f6" radius={[4,4,0,0]}/>
                 <Bar dataKey="profit" fill="#10b981" radius={[4,4,0,0]}/>
               </BarChart>
@@ -77,14 +79,14 @@ export function Reports() {
                 <Pie data={categorySummary} dataKey="revenue" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3}>
                   {categorySummary.map((_,i)=><Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}
                 </Pie>
-                <Tooltip contentStyle={{background:"#111827",border:"1px solid #374151",borderRadius:8,fontSize:12}} formatter={(v)=>[`$${(v as number).toFixed(2)}`]}/>
+                <Tooltip contentStyle={{background:"#111827",border:"1px solid #374151",borderRadius:8,fontSize:12}} formatter={(v)=>[fmt(v as number)]}/>
               </PieChart>
             </ResponsiveContainer>
             <div className="flex-1 space-y-2">
               {categorySummary.map((cat,i)=>(
                 <div key={cat.name} className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full" style={{background:PIE_COLORS[i%PIE_COLORS.length]}}/><span className="text-gray-300">{cat.name}</span></div>
-                  <span className="text-gray-400 font-medium">${cat.revenue.toFixed(0)}</span>
+                  <span className="text-gray-400 font-medium">{fmt(cat.revenue)}</span>
                 </div>
               ))}
             </div>

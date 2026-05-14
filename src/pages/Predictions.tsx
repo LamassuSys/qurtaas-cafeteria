@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { dailySummary } from "@/data/mockData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ComposedChart, Line, Area, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, ReferenceLine, Legend } from "recharts";
+import { useI18n } from "@/data/i18nStore";
 
 function linearRegression(data: number[]) {
   const n = data.length;
@@ -12,6 +13,7 @@ function linearRegression(data: number[]) {
 }
 
 export function Predictions() {
+  const { fmt } = useI18n();
   const historicalRevenue = dailySummary.map(d=>d.revenue);
   const { slope, intercept } = useMemo(()=>linearRegression(historicalRevenue),[]);
   const stdDev = useMemo(()=>{
@@ -56,8 +58,8 @@ export function Predictions() {
       <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl px-5 py-3 text-xs text-gray-400 flex flex-wrap gap-4">
         <span>📊 <span className="text-blue-400 font-medium">Model:</span> Linear Regression + Day-of-Week Seasonality</span>
         <span>📈 <span className="text-blue-400 font-medium">Trend:</span> {slope>=0?"+":""}{slope.toFixed(2)}/day</span>
-        <span>🎯 <span className="text-blue-400 font-medium">Std Dev:</span> ±${stdDev.toFixed(2)}</span>
-        <span>🔮 <span className="text-blue-400 font-medium">30-Day Forecast:</span> ${next30Revenue.toFixed(0)}</span>
+        <span>🎯 <span className="text-blue-400 font-medium">Std Dev:</span> ±{fmt(stdDev)}</span>
+        <span>🔮 <span className="text-blue-400 font-medium">30-Day Forecast:</span> {fmt(next30Revenue, true)}</span>
       </div>
 
       <Card className="bg-gray-900 border-gray-800">
@@ -69,7 +71,7 @@ export function Predictions() {
               <CartesianGrid strokeDasharray="3 3" stroke="#1f2937"/>
               <XAxis dataKey="date" tick={{fill:"#6b7280",fontSize:10}} interval={4}/>
               <YAxis tick={{fill:"#6b7280",fontSize:11}}/>
-              <Tooltip contentStyle={{background:"#111827",border:"1px solid #374151",borderRadius:8,fontSize:12}} formatter={(v,name)=>{const n=v as number|undefined;return n!==undefined?[`$${n.toFixed(2)}`,name as string]:["—",name as string];}}/>
+              <Tooltip contentStyle={{background:"#111827",border:"1px solid #374151",borderRadius:8,fontSize:12}} formatter={(v,name)=>{const n=v as number|undefined;return n!==undefined?[fmt(n),name as string]:["—",name as string];}}/>
               <Legend wrapperStyle={{fontSize:12,color:"#9ca3af"}}/>
               <ReferenceLine x={dailySummary[dailySummary.length-1].date.slice(5)} stroke="#374151" strokeDasharray="4 2" label={{value:"Today",fill:"#6b7280",fontSize:10}}/>
               <Area dataKey="upper" fill="url(#confGrad)" stroke="transparent" name="Upper CI" legendType="none"/>
@@ -100,9 +102,9 @@ export function Predictions() {
                   return (
                     <tr key={d.date} className="hover:bg-gray-800/50 transition-colors">
                       <td className="px-4 py-3 text-gray-300 font-medium">2026-{d.date}</td>
-                      <td className="px-4 py-3 text-blue-400 font-bold">${d.trend!.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-red-400">${d.lower!.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-emerald-400">${d.upper!.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-blue-400 font-bold">{fmt(d.trend!)}</td>
+                      <td className="px-4 py-3 text-red-400">{fmt(d.lower!)}</td>
+                      <td className="px-4 py-3 text-emerald-400">{fmt(d.upper!)}</td>
                       <td className="px-4 py-3"><span className={vs>=0?"text-emerald-400":"text-red-400"}>{vs>=0?"+":""}{vs.toFixed(1)}%</span></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">

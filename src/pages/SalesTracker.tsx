@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Search, Plus, X } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import { ROLE_CONFIG } from "@/auth/roles";
+import { useI18n } from "@/data/i18nStore";
 
 const CAT_COLORS: Record<string,string> = {
   Beverages:"bg-blue-500/20 text-blue-400", Snacks:"bg-amber-500/20 text-amber-400",
@@ -17,6 +18,7 @@ const CAT_COLORS: Record<string,string> = {
 
 export function SalesTracker() {
   const { user } = useAuth();
+  const { fmt } = useI18n();
   const canRecord = user ? ROLE_CONFIG[user.role].canRecordSales : false;
   const { items: MENU_ITEMS, categories } = useMenu();
   const CATEGORIES = categories.map(c => c.name);
@@ -87,7 +89,7 @@ export function SalesTracker() {
               <div>
                 <label className="text-xs text-gray-400 block mb-1">Item</label>
                 <select value={form.item} onChange={e=>setForm({...form,item:e.target.value})} className="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg px-3 py-2">
-                  {activeItems.map(m=><option key={m.id} value={m.name}>{m.emoji} {m.name} — ${m.price}</option>)}
+                  {activeItems.map(m=><option key={m.id} value={m.name}>{m.emoji} {m.name} — {fmt(m.price)}</option>)}
                 </select>
               </div>
               <div>
@@ -102,7 +104,7 @@ export function SalesTracker() {
       )}
 
       <div className="grid grid-cols-3 gap-3">
-        {[{label:"Filtered Orders",value:totals.orders.toLocaleString()},{label:"Revenue",value:`$${totals.revenue.toFixed(2)}`},{label:"Profit",value:`$${totals.profit.toFixed(2)}`}].map(({label,value})=>(
+        {[{label:"Filtered Orders",value:totals.orders.toLocaleString()},{label:"Revenue",value:fmt(totals.revenue)},{label:"Profit",value:fmt(totals.profit)}].map(({label,value})=>(
           <Card key={label} className="bg-gray-900 border-gray-800">
             <CardContent className="p-3 text-center">
               <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
@@ -132,9 +134,9 @@ export function SalesTracker() {
                     <td className="px-4 py-2.5 text-gray-200 font-medium whitespace-nowrap">{tx.item}</td>
                     <td className="px-4 py-2.5"><Badge className={`text-xs px-2 py-0 ${CAT_COLORS[tx.category]||"bg-gray-700 text-gray-300"}`}>{tx.category}</Badge></td>
                     <td className="px-4 py-2.5 text-gray-300">{tx.qty}</td>
-                    <td className="px-4 py-2.5 text-gray-300">${tx.price.toFixed(2)}</td>
-                    <td className="px-4 py-2.5 text-blue-400 font-semibold">${tx.revenue.toFixed(2)}</td>
-                    <td className="px-4 py-2.5 text-emerald-400 font-semibold">${tx.profit.toFixed(2)}</td>
+                    <td className="px-4 py-2.5 text-gray-300">{fmt(tx.price)}</td>
+                    <td className="px-4 py-2.5 text-blue-400 font-semibold">{fmt(tx.revenue)}</td>
+                    <td className="px-4 py-2.5 text-emerald-400 font-semibold">{fmt(tx.profit)}</td>
                   </tr>
                 ))}
               </tbody>

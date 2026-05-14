@@ -79,7 +79,7 @@ export function Dashboard() {
                   <div key={item.name}>
                     <div className="flex items-center justify-between text-xs mb-1">
                       <span className="flex items-center gap-1.5"><span className="text-gray-500">#{i+1}</span><span className="text-gray-300 font-medium">{item.name}</span></span>
-                      <span className="text-blue-400 font-semibold">${item.revenue.toFixed(0)}</span>
+                      <span className="text-blue-400 font-semibold">{fmt(item.revenue, true)}</span>
                     </div>
                     <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                       <div className="h-full bg-blue-500 rounded-full" style={{width:`${pct}%`}}/>
@@ -122,7 +122,7 @@ export function Dashboard() {
                     <span className="text-xs text-gray-300 font-medium">{tx.item}</span>
                     <Badge variant="secondary" className="bg-gray-800 text-gray-500 text-xs px-1.5 py-0">×{tx.qty}</Badge>
                   </div>
-                  <span className="text-xs text-blue-400 font-semibold">${tx.revenue.toFixed(2)}</span>
+                  <span className="text-xs text-blue-400 font-semibold">{fmt(tx.revenue)}</span>
                 </div>
               ))}
             </div>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useOrders, STATUS_META, type OrderStatus, type Order } from "@/data/ordersStore";
 import { useAuth } from "@/auth/AuthContext";
 import { ROLE_CONFIG } from "@/auth/roles";
+import { useI18n } from "@/data/i18nStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,7 @@ function OrderCard({ order, canAdvance, canCancel, onAdvance, onCancel }: {
 }) {
   const [expanded, setExpanded] = useState(false);
   const meta = STATUS_META[order.status];
+  const { fmt } = useI18n();
 
   return (
     <Card className={`border ${meta.bg} bg-gray-900 transition-all`}>
@@ -71,7 +73,7 @@ function OrderCard({ order, canAdvance, canCancel, onAdvance, onCancel }: {
 
         {/* Total + actions */}
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-base font-bold text-blue-400">${order.total.toFixed(2)}</span>
+          <span className="text-base font-bold text-blue-400">{fmt(order.total)}</span>
           <div className="flex gap-2">
             {canCancel && order.status !== "completed" && order.status !== "cancelled" && (
               <button onClick={onCancel}
@@ -98,12 +100,12 @@ function OrderCard({ order, canAdvance, canCancel, onAdvance, onCancel }: {
               {order.items.map(item => (
                 <div key={item.menuItemId} className="flex justify-between text-xs">
                   <span className="text-gray-400">{item.emoji} {item.name} ×{item.qty}</span>
-                  <span className="text-gray-300">${(item.price * item.qty).toFixed(2)}</span>
+                  <span className="text-gray-300">{fmt(item.price * item.qty)}</span>
                 </div>
               ))}
               <div className="flex justify-between text-xs font-semibold border-t border-gray-800 pt-1">
                 <span className="text-gray-400">Total</span>
-                <span className="text-blue-400">${order.total.toFixed(2)}</span>
+                <span className="text-blue-400">{fmt(order.total)}</span>
               </div>
             </div>
             {/* Status history */}
@@ -126,6 +128,7 @@ function OrderCard({ order, canAdvance, canCancel, onAdvance, onCancel }: {
 
 export function Orders() {
   const { user } = useAuth();
+  const { fmt } = useI18n();
   const { orders, updateStatus, cancelOrder } = useOrders();
   const [tab, setTab] = useState<OrderStatus | "all">("all");
   const [search, setSearch] = useState("");
@@ -163,7 +166,7 @@ export function Orders() {
           { label: "Pending",      value: pendingCount.toString(),        color: "text-amber-400"   },
           { label: "Preparing",    value: preparingCount.toString(),      color: "text-blue-400"    },
           { label: "Today Orders", value: todayOrders.length.toString(),  color: "text-purple-400"  },
-          { label: "Today Revenue",value: canSeeRevenue ? `$${todayRevenue.toFixed(2)}` : "—", color: "text-emerald-400" },
+          { label: "Today Revenue",value: canSeeRevenue ? fmt(todayRevenue) : "—", color: "text-emerald-400" },
         ].map(({ label, value, color }) => (
           <Card key={label} className="bg-gray-900 border-gray-800">
             <CardContent className="p-4 text-center">
