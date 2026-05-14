@@ -1,73 +1,45 @@
-# React + TypeScript + Vite
+# Qurtaas Ink & Drink — Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A full-featured cafeteria management dashboard for **Qurtaas Ink & Drink** built with React + TypeScript + Tailwind CSS.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- 📊 **Dashboard** — Live KPIs, 7-day revenue trend, top items, hourly orders
+- 🧾 **Sales Tracker** — Transaction log with filtering, role-gated sale recording
+- 📈 **Reports** — Daily/weekly charts, category pie, peak-hour heatmap
+- 🔍 **Analytics** — Profit margins, category performance, top & slow-moving items
+- 🔮 **Predictions** — Linear regression + day-of-week seasonality, 30-day forecast
+- ⚠️ **Drawbacks Finder** — Auto-detected business issues with recommendations
+- 📣 **Marketing Planner** — 6 ready-to-launch campaigns with 30-day calendar
+- 📦 **Inventory** — Stock levels, days-left countdown, reorder checklist
+- 👥 **User Management** — Full RBAC with 5 roles managed by Super Admin
 
-## React Compiler
+## Roles
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Role | Access |
+|------|--------|
+| Super Admin | All pages + user management |
+| Admin | All pages except user management |
+| Cashier | Dashboard + Sales |
+| Accountant | Dashboard, Reports, Analytics, Predictions |
+| Supply Manager | Dashboard, Inventory, Analytics |
 
-## Expanding the ESLint configuration
+## Tech Stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **Frontend:** React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui
+- **Charts:** Recharts
+- **Auth:** Role-based access control via React Context + localStorage
+- **Deploy:** GitHub Pages via GitHub Actions
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Development
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+pnpm install
+pnpm dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Build
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+pnpm build
 ```
