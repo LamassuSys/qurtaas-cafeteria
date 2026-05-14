@@ -16,6 +16,10 @@ import { Marketing } from "@/pages/Marketing";
 import { Inventory } from "@/pages/Inventory";
 import { UserManagement } from "@/pages/UserManagement";
 import { MenuManager } from "@/pages/MenuManager";
+import { POSCashier } from "@/pages/POSCashier";
+import { Orders } from "@/pages/Orders";
+import { BaristaKDS } from "@/pages/BaristaKDS";
+import { OrdersProvider } from "@/data/ordersStore";
 
 const PAGE_MAP: Record<Page, React.ReactNode> = {
   dashboard:   <Dashboard />,
@@ -28,6 +32,9 @@ const PAGE_MAP: Record<Page, React.ReactNode> = {
   inventory:   <Inventory />,
   users:       <UserManagement />,
   menu:        <MenuManager />,
+  pos:         <POSCashier />,
+  orders:      <Orders />,
+  barista_kds: <BaristaKDS />,
 };
 
 function AppInner() {
@@ -68,7 +75,9 @@ export default function App() {
   return (
     <AuthProvider>
       <MenuProvider>
-        <AppInner />
+        <OrdersProvider>
+          <AppInner />
+        </OrdersProvider>
       </MenuProvider>
     </AuthProvider>
   );

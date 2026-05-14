@@ -3,12 +3,13 @@ export type Role =
   | "admin"
   | "cashier"
   | "accountant"
-  | "supply_manager";
+  | "supply_manager"
+  | "barista";
 
 export type PageId =
   | "dashboard" | "sales" | "reports" | "analytics"
   | "predictions" | "drawbacks" | "marketing" | "inventory"
-  | "users" | "menu";
+  | "users" | "menu" | "pos" | "orders" | "barista_kds";
 
 export interface RoleConfig {
   label: string;
@@ -26,7 +27,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     label: "Super Admin",
     color: "text-red-400",
     bg: "bg-red-500/20 border-red-500/30",
-    pages: ["dashboard","sales","reports","analytics","predictions","drawbacks","marketing","inventory","users","menu"],
+    pages: ["dashboard","pos","orders","sales","reports","analytics","predictions","drawbacks","marketing","inventory","users","menu","barista_kds"],
     canManageUsers: true,
     canRecordSales: true,
     canViewFinancials: true,
@@ -36,7 +37,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     label: "Admin",
     color: "text-purple-400",
     bg: "bg-purple-500/20 border-purple-500/30",
-    pages: ["dashboard","sales","reports","analytics","predictions","drawbacks","marketing","inventory"],
+    pages: ["dashboard","pos","orders","sales","reports","analytics","predictions","drawbacks","marketing","inventory","barista_kds"],
     canManageUsers: false,
     canRecordSales: true,
     canViewFinancials: true,
@@ -46,7 +47,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     label: "Cashier",
     color: "text-emerald-400",
     bg: "bg-emerald-500/20 border-emerald-500/30",
-    pages: ["dashboard","sales"],
+    pages: ["dashboard","pos","orders"],
     canManageUsers: false,
     canRecordSales: true,
     canViewFinancials: false,
@@ -56,7 +57,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     label: "Accountant",
     color: "text-blue-400",
     bg: "bg-blue-500/20 border-blue-500/30",
-    pages: ["dashboard","reports","analytics","predictions"],
+    pages: ["dashboard","orders","reports","analytics","predictions"],
     canManageUsers: false,
     canRecordSales: false,
     canViewFinancials: true,
@@ -71,6 +72,16 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     canRecordSales: false,
     canViewFinancials: false,
     canManageInventory: true,
+  },
+  barista: {
+    label: "Barista",
+    color: "text-orange-400",
+    bg: "bg-orange-500/20 border-orange-500/30",
+    pages: ["orders","barista_kds"],
+    canManageUsers: false,
+    canRecordSales: false,
+    canViewFinancials: false,
+    canManageInventory: false,
   },
 };
 
@@ -92,6 +103,7 @@ export const DEFAULT_USERS: AppUser[] = [
   { id: "4", username: "cashier2",      fullName: "Nour Ibrahim",       role: "cashier",       active: true, createdAt: "2026-02-10" },
   { id: "5", username: "accountant1",   fullName: "Layla Mahmoud",      role: "accountant",    active: true, createdAt: "2026-01-15" },
   { id: "6", username: "supply1",       fullName: "Khaled Samir",       role: "supply_manager",active: true, createdAt: "2026-01-20" },
+  { id: "7", username: "barista1",      fullName: "Hana Yousef",        role: "barista",       active: true, createdAt: "2026-01-22" },
 ];
 
 // Passwords stored separately (in real app: hashed in DB)
@@ -102,4 +114,5 @@ export const DEFAULT_PASSWORDS: Record<string, string> = {
   cashier2:     "Cashier@1234",
   accountant1:  "Acct@1234",
   supply1:      "Supply@1234",
+  barista1:     "Barista@1234",
 };

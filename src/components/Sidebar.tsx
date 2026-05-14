@@ -2,7 +2,8 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard, ShoppingCart, BarChart3, TrendingUp,
   Brain, AlertTriangle, Megaphone, Package, ChevronLeft,
-  ChevronRight, Users, UtensilsCrossed
+  ChevronRight, Users, UtensilsCrossed, MonitorSmartphone,
+  ClipboardList, ChefHat
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoFull } from "@/components/Logo";
@@ -12,10 +13,13 @@ import { useAuth } from "@/auth/AuthContext";
 export type Page =
   | "dashboard" | "sales" | "reports" | "analytics"
   | "predictions" | "drawbacks" | "marketing" | "inventory"
-  | "users" | "menu";
+  | "users" | "menu" | "pos" | "orders" | "barista_kds";
 
 const ALL_NAV: { id: Page; label: string; icon: LucideIcon }[] = [
   { id: "dashboard",   label: "Dashboard",     icon: LayoutDashboard },
+  { id: "pos",         label: "POS / Order",   icon: MonitorSmartphone },
+  { id: "orders",      label: "Orders",        icon: ClipboardList },
+  { id: "barista_kds", label: "Kitchen Display", icon: ChefHat },
   { id: "sales",       label: "Sales Tracker", icon: ShoppingCart },
   { id: "reports",     label: "Reports",       icon: BarChart3 },
   { id: "analytics",   label: "Analytics",     icon: TrendingUp },

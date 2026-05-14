@@ -119,6 +119,7 @@ export function Login() {
                 { role: "Cashier",        user: "cashier1",     pass: "Cashier@1234" },
                 { role: "Accountant",     user: "accountant1",  pass: "Acct@1234" },
                 { role: "Supply Mgr",     user: "supply1",      pass: "Supply@1234" },
+                { role: "Barista",        user: "barista1",     pass: "Barista@1234" },
               ].map(c => (
                 <button
                   key={c.user}
