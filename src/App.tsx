@@ -40,7 +40,7 @@ const PAGE_MAP: Record<Page, React.ReactNode> = {
   barista_kds: <BaristaKDS />,
 };
 
-function AppInner() {
+function AppInner({ onBackToHome }: { onBackToHome?: () => void }) {
   const { user, initialized } = useAuth();
   const { isRTL } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
@@ -66,7 +66,7 @@ function AppInner() {
     );
   }
 
-  if (!user) return <Login />;
+  if (!user) return <Login onBack={onBackToHome} />;
 
   // Guard: if the role from DB is unrecognised, treat as logged-out
   if (!ROLE_CONFIG[user.role]) return <Login />;
@@ -95,7 +95,7 @@ function Router() {
   const [mode, setMode] = useState<"landing" | "staff">("landing");
   const match = window.location.pathname.match(/^\/table\/(\d+)$/);
   if (match) return <CustomerPortal tableNumber={parseInt(match[1])} />;
-  if (mode === "staff") return <AppInner />;
+  if (mode === "staff") return <AppInner onBackToHome={() => setMode("landing")} />;
   return <LandingPage onStaffLogin={() => setMode("staff")} />;
 }
 

@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useAuth } from "@/auth/AuthContext";
 import { Logo } from "@/components/Logo";
-import { Eye, EyeOff, LogIn } from "lucide-react";
+import { Eye, EyeOff, LogIn, ArrowLeft } from "lucide-react";
 import { useI18n } from "@/data/i18nStore";
 
-export function Login() {
+export function Login({ onBack }: { onBack?: () => void }) {
   const { login } = useAuth();
   const { t, isRTL } = useI18n();
   const [username, setUsername] = useState("");
@@ -24,6 +24,17 @@ export function Login() {
 
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4" dir={isRTL ? "rtl" : "ltr"}>
+      {/* Back to home */}
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="absolute top-5 left-5 flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-200 transition-colors group"
+        >
+          <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
+          Back to home
+        </button>
+      )}
+
       {/* Background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
