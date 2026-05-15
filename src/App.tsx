@@ -40,8 +40,17 @@ const PAGE_MAP: Record<Page, React.ReactNode> = {
 
 function AppInner() {
   const { user, initialized } = useAuth();
+  const { isRTL } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const [page, setPage] = useState<Page>("dashboard");
+
+  // ALL hooks must come before any conditional returns (Rules of Hooks)
+  useEffect(() => {
+    if (user) {
+      const allowed = ROLE_CONFIG[user.role].pages;
+      if (!allowed.includes(page)) setPage(allowed[0] as Page);
+    }
+  }, [user]);
 
   // Show a centered spinner while Supabase completes the first user load
   if (!initialized) {
@@ -53,14 +62,6 @@ function AppInner() {
     );
   }
 
-  // When user logs in, set page to their first allowed page
-  useEffect(() => {
-    if (user) {
-      const allowed = ROLE_CONFIG[user.role].pages;
-      if (!allowed.includes(page)) setPage(allowed[0] as Page);
-    }
-  }, [user]);
-
   if (!user) return <Login />;
 
   const allowed = ROLE_CONFIG[user.role].pages;
@@ -68,8 +69,6 @@ function AppInner() {
   const navigate = (p: Page) => {
     if (allowed.includes(p)) setPage(p);
   };
-
-  const { isRTL } = useI18n();
 
   return (
     <div className="flex h-screen bg-gray-950 text-gray-100 overflow-hidden" style={{ direction: isRTL ? "rtl" : "ltr" }}>
