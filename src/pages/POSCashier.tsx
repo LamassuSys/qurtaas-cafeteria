@@ -46,9 +46,9 @@ export function POSCashier() {
   const total   = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const itemCount = cart.reduce((s, i) => s + i.qty, 0);
 
-  const submitOrder = () => {
+  const submitOrder = async () => {
     if (!cart.length) return;
-    const order = createOrder(cart, customerName, notes, user?.username ?? "cashier");
+    const order = await createOrder(cart, customerName, notes, user?.username ?? "cashier");
     setSuccess({ num: order.orderNumber });
     setCart([]);
     setCustomerName("");

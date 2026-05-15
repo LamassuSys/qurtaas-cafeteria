@@ -39,9 +39,19 @@ const PAGE_MAP: Record<Page, React.ReactNode> = {
 };
 
 function AppInner() {
-  const { user } = useAuth();
+  const { user, initialized } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [page, setPage] = useState<Page>("dashboard");
+
+  // Show a centered spinner while Supabase completes the first user load
+  if (!initialized) {
+    return (
+      <div className="h-screen bg-gray-950 flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+        <p className="text-gray-500 text-sm">Connecting to database…</p>
+      </div>
+    );
+  }
 
   // When user logs in, set page to their first allowed page
   useEffect(() => {

@@ -1,32 +1,40 @@
 import { useMemo } from "react";
-import { transactions, dailySummary, itemSummary, hourlySummary } from "@/data/mockData";
+import { dailySummary, itemSummary, hourlySummary } from "@/data/mockData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { TrendingUp, ShoppingBag, DollarSign, Users } from "lucide-react";
 import { useI18n } from "@/data/i18nStore";
+import { useOrders } from "@/data/ordersStore";
 
 export function Dashboard() {
   const { t, fmt } = useI18n();
-  const todayStr = "2026-05-14";
-  const yesterdayStr = "2026-05-13";
-  const todayTx = useMemo(() => transactions.filter(t => t.date === todayStr), []);
-  const yesterdayTx = useMemo(() => transactions.filter(t => t.date === yesterdayStr), []);
-  const todayRevenue = todayTx.reduce((s, t) => s + t.revenue, 0);
-  const yesterdayRevenue = yesterdayTx.reduce((s, t) => s + t.revenue, 0);
-  const revenueChange = yesterdayRevenue ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100 : 0;
-  const avgOrder = todayTx.length ? todayRevenue / todayTx.length : 0;
-  const last7 = dailySummary.slice(-7);
-  const last30 = dailySummary.slice(-30);
+  const { orders } = useOrders();
+
+  // ── Live KPIs from real Supabase orders ─────────────────────
+  const todayStr     = new Date().toISOString().slice(0, 10);
+  const yesterdayStr = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+
+  const todayOrders     = useMemo(() => orders.filter(o => o.createdAt.startsWith(todayStr)    && o.status !== "cancelled"), [orders, todayStr]);
+  const yesterdayOrders = useMemo(() => orders.filter(o => o.createdAt.startsWith(yesterdayStr) && o.status !== "cancelled"), [orders, yesterdayStr]);
+  const recentOrders    = useMemo(() => orders.filter(o => o.status !== "cancelled").slice(0, 8), [orders]);
+
+  const todayRevenue     = useMemo(() => todayOrders.reduce((s, o) => s + o.total, 0), [todayOrders]);
+  const yesterdayRevenue = useMemo(() => yesterdayOrders.reduce((s, o) => s + o.total, 0), [yesterdayOrders]);
+  const revenueChange    = yesterdayRevenue ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100 : 0;
+  const avgOrder         = todayOrders.length ? todayRevenue / todayOrders.length : 0;
+
+  // ── Historical charts still from mock data ───────────────────
+  const last7          = dailySummary.slice(-7);
+  const last30         = dailySummary.slice(-30);
   const totalRevenue30 = last30.reduce((s, d) => s + d.revenue, 0);
-  const topItems = itemSummary.slice(0, 5);
-  const recentTx = transactions.filter(t => t.date === todayStr).slice(-8).reverse();
+  const topItems       = itemSummary.slice(0, 5);
 
   const KPIs = [
-    { label: t("todays_revenue"), value: fmt(todayRevenue), sub: `${revenueChange >= 0 ? "+" : ""}${revenueChange.toFixed(1)}% ${t("vs_yesterday")}`, icon: DollarSign, positive: revenueChange >= 0, color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20" },
-    { label: t("orders_today"), value: todayTx.length.toString(), sub: `${yesterdayTx.length} yesterday`, icon: ShoppingBag, positive: todayTx.length >= yesterdayTx.length, color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/20" },
+    { label: t("todays_revenue"),  value: fmt(todayRevenue), sub: `${revenueChange >= 0 ? "+" : ""}${revenueChange.toFixed(1)}% ${t("vs_yesterday")}`, icon: DollarSign, positive: revenueChange >= 0, color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20" },
+    { label: t("orders_today"),    value: todayOrders.length.toString(), sub: `${yesterdayOrders.length} yesterday`, icon: ShoppingBag, positive: todayOrders.length >= yesterdayOrders.length, color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/20" },
     { label: t("avg_order_value"), value: fmt(avgOrder), sub: t("per_tx"), icon: TrendingUp, positive: true, color: "text-purple-400", bg: "bg-purple-500/10 border-purple-500/20" },
-    { label: t("revenue_30d"), value: fmt(totalRevenue30, true), sub: `${last30.reduce((s,d)=>s+d.orders,0).toLocaleString()} ${t("total_orders")}`, icon: Users, positive: true, color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20" },
+    { label: t("revenue_30d"),     value: fmt(totalRevenue30, true), sub: `${last30.reduce((s,d)=>s+d.orders,0).toLocaleString()} ${t("total_orders")}`, icon: Users, positive: true, color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20" },
   ];
 
   return (
@@ -115,14 +123,18 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-              {recentTx.map(tx => (
-                <div key={tx.id} className="flex items-center justify-between py-1.5 border-b border-gray-800 last:border-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-600 font-mono w-10">{tx.time}</span>
-                    <span className="text-xs text-gray-300 font-medium">{tx.item}</span>
-                    <Badge variant="secondary" className="bg-gray-800 text-gray-500 text-xs px-1.5 py-0">×{tx.qty}</Badge>
+              {recentOrders.length === 0 && (
+                <p className="text-xs text-gray-600 text-center py-4">No orders yet today</p>
+              )}
+              {recentOrders.map(order => (
+                <div key={order.id} className="flex items-center justify-between py-1.5 border-b border-gray-800 last:border-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs text-gray-600 font-mono shrink-0">#{order.orderNumber}</span>
+                    <span className="text-xs text-gray-300 font-medium truncate">
+                      {order.items.map(i => `${i.emoji} ${i.name}`).join(", ")}
+                    </span>
                   </div>
-                  <span className="text-xs text-blue-400 font-semibold">{fmt(tx.revenue)}</span>
+                  <span className="text-xs text-blue-400 font-semibold shrink-0 ml-2">{fmt(order.total)}</span>
                 </div>
               ))}
             </div>

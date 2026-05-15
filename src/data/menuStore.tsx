@@ -1,114 +1,166 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { supabase } from "@/lib/supabase";
 import { MENU_ITEMS as SEED_ITEMS, CATEGORIES as SEED_CATS } from "@/data/mockData";
 
+// ── Types ──────────────────────────────────────────────────────
 export interface MenuItem {
-  id: string;
-  name: string;
+  id:       string;
+  name:     string;
   category: string;
-  price: number;
-  cost: number;
-  emoji: string;
-  active: boolean;
-  custom: boolean; // false = seeded from mockData, true = created by admin
+  price:    number;   // IQD
+  cost:     number;   // IQD
+  emoji:    string;
+  active:   boolean;
+  custom:   boolean;
 }
 
 export interface Category {
-  id: string;
-  name: string;
-  emoji: string;
-  color: string;   // tailwind bg+text pair, e.g. "bg-blue-500/20 text-blue-400"
+  id:     string;
+  name:   string;
+  emoji:  string;
+  color:  string;
   custom: boolean;
 }
 
+// ── Fallback seed data (used when Supabase is unreachable) ─────
 const CAT_COLORS = [
-  "bg-blue-500/20 text-blue-400",
-  "bg-emerald-500/20 text-emerald-400",
-  "bg-amber-500/20 text-amber-400",
-  "bg-pink-500/20 text-pink-400",
-  "bg-orange-500/20 text-orange-400",
-  "bg-purple-500/20 text-purple-400",
-  "bg-cyan-500/20 text-cyan-400",
-  "bg-red-500/20 text-red-400",
+  "bg-blue-500/20 text-blue-400",   "bg-emerald-500/20 text-emerald-400",
+  "bg-amber-500/20 text-amber-400", "bg-pink-500/20 text-pink-400",
+  "bg-orange-500/20 text-orange-400","bg-purple-500/20 text-purple-400",
 ];
-
-// Seed categories from mockData
-const SEED_CATEGORIES: Category[] = SEED_CATS.map((name, i) => ({
-  id: `seed-cat-${i}`,
-  name,
-  emoji: ["☕","🍿","🥗","🍰","🍽️"][i] ?? "🏷️",
-  color: CAT_COLORS[i % CAT_COLORS.length],
-  custom: false,
+const FALLBACK_CATS: Category[] = SEED_CATS.map((name, i) => ({
+  id: `seed-cat-${i}`, name, emoji: ["☕","🍿","🥗","🍰","🍽️"][i] ?? "🏷️",
+  color: CAT_COLORS[i % CAT_COLORS.length], custom: false,
+}));
+const FALLBACK_ITEMS: MenuItem[] = SEED_ITEMS.map(item => ({
+  id: `seed-${item.id}`, name: item.name, category: item.category,
+  price: item.price, cost: item.cost, emoji: item.emoji, active: true, custom: false,
 }));
 
-// Seed menu items from mockData
-const SEED_MENU_ITEMS: MenuItem[] = SEED_ITEMS.map(item => ({
-  id: `seed-${item.id}`,
-  name: item.name,
-  category: item.category,
-  price: item.price,
-  cost: item.cost,
-  emoji: item.emoji,
-  active: true,
-  custom: false,
-}));
-
-const LS_ITEMS = "ink_menu_items";
-const LS_CATS  = "ink_menu_cats";
-
-function load<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch { return fallback; }
+// ── Helpers ────────────────────────────────────────────────────
+function rowToItem(r: Record<string, unknown>): MenuItem {
+  return {
+    id: r.id as string, name: r.name as string,
+    category: r.category as string,
+    price: Number(r.price), cost: Number(r.cost),
+    emoji: r.emoji as string, active: r.active as boolean, custom: true,
+  };
+}
+function rowToCat(r: Record<string, unknown>): Category {
+  return {
+    id: r.id as string, name: r.name as string,
+    emoji: r.emoji as string, color: r.color as string, custom: true,
+  };
 }
 
+// ── Context ────────────────────────────────────────────────────
 interface MenuCtx {
-  items:      MenuItem[];
-  categories: Category[];
-  addItem:    (item: Omit<MenuItem, "id" | "custom">) => void;
-  updateItem: (id: string, patch: Partial<Omit<MenuItem, "id" | "custom">>) => void;
-  deleteItem: (id: string) => void;
-  addCategory:    (cat: Omit<Category, "id" | "custom">) => void;
-  updateCategory: (id: string, patch: Partial<Omit<Category, "id" | "custom">>) => void;
-  deleteCategory: (id: string) => void;
+  items:          MenuItem[];
+  categories:     Category[];
+  loading:        boolean;
+  addItem:        (item: Omit<MenuItem, "id" | "custom">) => Promise<void>;
+  updateItem:     (id: string, patch: Partial<Omit<MenuItem, "id" | "custom">>) => Promise<void>;
+  deleteItem:     (id: string) => Promise<void>;
+  addCategory:    (cat:  Omit<Category, "id" | "custom">) => Promise<void>;
+  updateCategory: (id: string, patch: Partial<Omit<Category, "id" | "custom">>) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
 }
 
 const Ctx = createContext<MenuCtx | null>(null);
 
 export function MenuProvider({ children }: { children: ReactNode }) {
-  const [customItems, setCustomItems] = useState<MenuItem[]>(() =>
-    load<MenuItem[]>(LS_ITEMS, [])
-  );
-  const [customCats, setCustomCats] = useState<Category[]>(() =>
-    load<Category[]>(LS_CATS, [])
-  );
+  const [items,      setItems]      = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading,    setLoading]    = useState(true);
 
-  useEffect(() => { localStorage.setItem(LS_ITEMS, JSON.stringify(customItems)); }, [customItems]);
-  useEffect(() => { localStorage.setItem(LS_CATS,  JSON.stringify(customCats));  }, [customCats]);
+  // ── Load ──────────────────────────────────────────────────
+  const load = async () => {
+    try {
+      const [{ data: cats }, { data: items }] = await Promise.all([
+        supabase.from("categories").select("*").order("sort_order"),
+        supabase.from("menu_items").select("*").order("created_at"),
+      ]);
+      if (cats && cats.length > 0) {
+        setCategories(cats.map(rowToCat));
+        setItems((items ?? []).map(rowToItem));
+      } else {
+        setCategories(FALLBACK_CATS);
+        setItems(FALLBACK_ITEMS);
+      }
+    } catch {
+      setCategories(FALLBACK_CATS);
+      setItems(FALLBACK_ITEMS);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const items      = [...SEED_MENU_ITEMS, ...customItems];
-  const categories = [...SEED_CATEGORIES, ...customCats];
+  useEffect(() => {
+    load();
+    // Real-time: reload whenever any menu row changes
+    const ch = supabase.channel("menu_rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "menu_items"  }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "categories"  }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
 
-  const addItem = (item: Omit<MenuItem, "id" | "custom">) =>
-    setCustomItems(prev => [...prev, { ...item, id: `custom-${Date.now()}`, custom: true }]);
+  // ── Menu item CRUD ────────────────────────────────────────
+  const addItem = async (item: Omit<MenuItem, "id" | "custom">) => {
+    const { data } = await supabase.from("menu_items").insert({
+      name: item.name, category: item.category,
+      price: item.price, cost: item.cost,
+      emoji: item.emoji, active: item.active,
+    }).select().single();
+    if (data) setItems(prev => [...prev, rowToItem(data as Record<string, unknown>)]);
+  };
 
-  const updateItem = (id: string, patch: Partial<Omit<MenuItem, "id" | "custom">>) =>
-    setCustomItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
+  const updateItem = async (id: string, patch: Partial<Omit<MenuItem, "id" | "custom">>) => {
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.name     !== undefined) dbPatch.name     = patch.name;
+    if (patch.category !== undefined) dbPatch.category = patch.category;
+    if (patch.price    !== undefined) dbPatch.price    = patch.price;
+    if (patch.cost     !== undefined) dbPatch.cost     = patch.cost;
+    if (patch.emoji    !== undefined) dbPatch.emoji    = patch.emoji;
+    if (patch.active   !== undefined) dbPatch.active   = patch.active;
+    await supabase.from("menu_items").update(dbPatch).eq("id", id);
+    setItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
+  };
 
-  const deleteItem = (id: string) =>
-    setCustomItems(prev => prev.filter(i => i.id !== id));
+  const deleteItem = async (id: string) => {
+    await supabase.from("menu_items").delete().eq("id", id);
+    setItems(prev => prev.filter(i => i.id !== id));
+  };
 
-  const addCategory = (cat: Omit<Category, "id" | "custom">) =>
-    setCustomCats(prev => [...prev, { ...cat, id: `custom-cat-${Date.now()}`, custom: true }]);
+  // ── Category CRUD ─────────────────────────────────────────
+  const addCategory = async (cat: Omit<Category, "id" | "custom">) => {
+    const sortOrder = categories.length + 1;
+    const { data } = await supabase.from("categories").insert({
+      name: cat.name, emoji: cat.emoji, color: cat.color, sort_order: sortOrder,
+    }).select().single();
+    if (data) setCategories(prev => [...prev, rowToCat(data as Record<string, unknown>)]);
+  };
 
-  const updateCategory = (id: string, patch: Partial<Omit<Category, "id" | "custom">>) =>
-    setCustomCats(prev => prev.map(c => c.id === id ? { ...c, ...patch } : c));
+  const updateCategory = async (id: string, patch: Partial<Omit<Category, "id" | "custom">>) => {
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.name  !== undefined) dbPatch.name  = patch.name;
+    if (patch.emoji !== undefined) dbPatch.emoji = patch.emoji;
+    if (patch.color !== undefined) dbPatch.color = patch.color;
+    await supabase.from("categories").update(dbPatch).eq("id", id);
+    setCategories(prev => prev.map(c => c.id === id ? { ...c, ...patch } : c));
+  };
 
-  const deleteCategory = (id: string) =>
-    setCustomCats(prev => prev.filter(c => c.id !== id));
+  const deleteCategory = async (id: string) => {
+    await supabase.from("categories").delete().eq("id", id);
+    setCategories(prev => prev.filter(c => c.id !== id));
+  };
 
   return (
-    <Ctx.Provider value={{ items, categories, addItem, updateItem, deleteItem, addCategory, updateCategory, deleteCategory }}>
+    <Ctx.Provider value={{
+      items, categories, loading,
+      addItem, updateItem, deleteItem,
+      addCategory, updateCategory, deleteCategory,
+    }}>
       {children}
     </Ctx.Provider>
   );
@@ -116,6 +168,6 @@ export function MenuProvider({ children }: { children: ReactNode }) {
 
 export function useMenu() {
   const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useMenu must be used inside MenuProvider");
+  if (!ctx) throw new Error("useMenu must be inside MenuProvider");
   return ctx;
 }

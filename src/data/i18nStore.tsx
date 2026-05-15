@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { supabase } from "@/lib/supabase";
 
 export type Lang = "en" | "ar";
 export type Currency = "USD" | "IQD";
@@ -229,11 +230,29 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const setLang         = (l: Lang)     => { setLangState(l);     localStorage.setItem(LS_LANG, l); };
   const setCurrency     = (c: Currency) => { setCurrencyState(c); localStorage.setItem(LS_CUR, c); };
-  const setExchangeRate = (r: number)   => {
+  const setExchangeRate = (r: number) => {
     const safe = r > 0 ? r : DEFAULT_IQD_RATE;
     setRateState(safe);
     localStorage.setItem(LS_RATE, String(safe));
+    // Persist to Supabase (best-effort)
+    supabase.from("app_settings")
+      .upsert({ key: "exchange_rate", value: String(safe) }, { onConflict: "key" })
+      .then(() => {});
   };
+
+  // Load exchange rate from Supabase on mount (overrides localStorage default)
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("app_settings").select("value").eq("key", "exchange_rate").single();
+        if (data) {
+          const r = parseFloat((data as Record<string, unknown>).value as string);
+          if (r > 0) { setRateState(r); localStorage.setItem(LS_RATE, String(r)); }
+        }
+      } catch { /* offline / not seeded yet */ }
+    })();
+  }, []);
 
   // Apply dir + font to <html>
   useEffect(() => {
