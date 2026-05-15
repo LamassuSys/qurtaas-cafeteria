@@ -22,6 +22,7 @@ import { POSCashier } from "@/pages/POSCashier";
 import { Orders } from "@/pages/Orders";
 import { BaristaKDS } from "@/pages/BaristaKDS";
 import { OrdersProvider } from "@/data/ordersStore";
+import { InventoryProvider } from "@/data/inventoryStore";
 import { I18nProvider, useI18n } from "@/data/i18nStore";
 
 const PAGE_MAP: Record<Page, React.ReactNode> = {
@@ -105,7 +106,9 @@ export default function App() {
       <AuthProvider>
         <MenuProvider>
           <OrdersProvider>
-            <Router />
+            <InventoryProvider>
+              <Router />
+            </InventoryProvider>
           </OrdersProvider>
         </MenuProvider>
       </AuthProvider>
