@@ -504,7 +504,7 @@ export function CustomerPortal({ tableNumber }: { tableNumber: number }) {
               <button
                 key={item.id}
                 onClick={() => addToCart(item)}
-                className="relative text-left p-3 rounded-2xl transition-all active:scale-[0.97]"
+                className="relative text-left rounded-2xl overflow-hidden transition-all active:scale-[0.97]"
                 style={{
                   background: inCart ? C.goldDim : C.surface,
                   border: `1px solid ${inCart ? C.goldBorder : C.border}`,
@@ -512,15 +512,24 @@ export function CustomerPortal({ tableNumber }: { tableNumber: number }) {
               >
                 {inCart && (
                   <span
-                    className="absolute top-2 right-2 w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center"
+                    className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full text-[11px] font-black flex items-center justify-center shadow-md"
                     style={{ background: C.gold, color: C.bg }}
                   >
                     {inCart.qty}
                   </span>
                 )}
-                <div className="text-3xl mb-2">{item.emoji}</div>
-                <p className="text-sm font-semibold leading-tight mb-1" style={{ color: C.text }}>{item.name}</p>
-                <p className="text-sm font-bold" style={{ color: C.gold }}>{fmt(item.price)}</p>
+                {/* Image or emoji */}
+                {item.imageUrl ? (
+                  <div className="w-full h-28 overflow-hidden">
+                    <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="px-3 pt-3 text-3xl">{item.emoji}</div>
+                )}
+                <div className="p-3 pt-2">
+                  <p className="text-sm font-semibold leading-tight mb-1" style={{ color: C.text }}>{item.name}</p>
+                  <p className="text-sm font-bold" style={{ color: C.gold }}>{fmt(item.price)}</p>
+                </div>
               </button>
             );
           })}

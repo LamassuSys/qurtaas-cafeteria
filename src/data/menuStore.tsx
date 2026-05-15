@@ -4,14 +4,15 @@ import { MENU_ITEMS as SEED_ITEMS, CATEGORIES as SEED_CATS } from "@/data/mockDa
 
 // ── Types ──────────────────────────────────────────────────────
 export interface MenuItem {
-  id:       string;
-  name:     string;
-  category: string;
-  price:    number;   // IQD
-  cost:     number;   // IQD
-  emoji:    string;
-  active:   boolean;
-  custom:   boolean;
+  id:        string;
+  name:      string;
+  category:  string;
+  price:     number;   // IQD
+  cost:      number;   // IQD
+  emoji:     string;
+  active:    boolean;
+  custom:    boolean;
+  imageUrl?: string;   // base64 data-URL or remote URL
 }
 
 export interface Category {
@@ -44,6 +45,7 @@ function rowToItem(r: Record<string, unknown>): MenuItem {
     category: r.category as string,
     price: Number(r.price), cost: Number(r.cost),
     emoji: r.emoji as string, active: r.active as boolean, custom: true,
+    imageUrl: (r.image_url as string | null) ?? undefined,
   };
 }
 function rowToCat(r: Record<string, unknown>): Category {
@@ -111,18 +113,20 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       name: item.name, category: item.category,
       price: item.price, cost: item.cost,
       emoji: item.emoji, active: item.active,
+      image_url: item.imageUrl ?? null,
     }).select().single();
     if (data) setItems(prev => [...prev, rowToItem(data as Record<string, unknown>)]);
   };
 
   const updateItem = async (id: string, patch: Partial<Omit<MenuItem, "id" | "custom">>) => {
     const dbPatch: Record<string, unknown> = {};
-    if (patch.name     !== undefined) dbPatch.name     = patch.name;
-    if (patch.category !== undefined) dbPatch.category = patch.category;
-    if (patch.price    !== undefined) dbPatch.price    = patch.price;
-    if (patch.cost     !== undefined) dbPatch.cost     = patch.cost;
-    if (patch.emoji    !== undefined) dbPatch.emoji    = patch.emoji;
-    if (patch.active   !== undefined) dbPatch.active   = patch.active;
+    if (patch.name     !== undefined) dbPatch.name      = patch.name;
+    if (patch.category !== undefined) dbPatch.category  = patch.category;
+    if (patch.price    !== undefined) dbPatch.price     = patch.price;
+    if (patch.cost     !== undefined) dbPatch.cost      = patch.cost;
+    if (patch.emoji    !== undefined) dbPatch.emoji     = patch.emoji;
+    if (patch.active   !== undefined) dbPatch.active    = patch.active;
+    if (patch.imageUrl !== undefined) dbPatch.image_url = patch.imageUrl ?? null;
     await supabase.from("menu_items").update(dbPatch).eq("id", id);
     setItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
   };

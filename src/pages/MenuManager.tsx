@@ -1,11 +1,31 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMenu, type MenuItem, type Category } from "@/data/menuStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Pencil, Trash2, X, Check, Tag, ShoppingBag, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Check, Tag, ShoppingBag, Search, ImagePlus, Trash } from "lucide-react";
 import { useI18n } from "@/data/i18nStore";
+
+// ── Image helpers ──────────────────────────────────────────────
+function resizeToBase64(file: File, maxPx = 600, quality = 0.82): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.round(img.width  * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
 
 const CAT_COLORS = [
   "bg-blue-500/20 text-blue-400",
@@ -97,18 +117,34 @@ function ItemForm({ initial, categories, onSave, onCancel }: {
   onCancel: () => void;
 }) {
   const { fmt } = useI18n();
-  const [name,     setName]     = useState(initial?.name     ?? "");
-  const [category, setCategory] = useState(initial?.category ?? (categories[0]?.name ?? ""));
-  const [price,    setPrice]    = useState(String(initial?.price ?? ""));
-  const [cost,     setCost]     = useState(String(initial?.cost  ?? ""));
-  const [emoji,    setEmoji]    = useState(initial?.emoji    ?? "🍽️");
-  const [active,   setActive]   = useState(initial?.active   ?? true);
-  const [showEmoji, setShowEmoji] = useState(false);
+  const [name,      setName]     = useState(initial?.name     ?? "");
+  const [category,  setCategory] = useState(initial?.category ?? (categories[0]?.name ?? ""));
+  const [price,     setPrice]    = useState(String(initial?.price ?? ""));
+  const [cost,      setCost]     = useState(String(initial?.cost  ?? ""));
+  const [emoji,     setEmoji]    = useState(initial?.emoji    ?? "🍽️");
+  const [active,    setActive]   = useState(initial?.active   ?? true);
+  const [imageUrl,  setImageUrl] = useState<string | undefined>(initial?.imageUrl);
+  const [imgLoading, setImgLoading] = useState(false);
+  const [showEmoji,  setShowEmoji]  = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const priceN = parseFloat(price);
   const costN  = parseFloat(cost);
   const valid  = name.trim().length >= 2 && category && priceN > 0 && costN >= 0 && costN < priceN;
   const margin = priceN > 0 ? Math.round(((priceN - costN) / priceN) * 100) : 0;
+
+  const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImgLoading(true);
+    try {
+      const b64 = await resizeToBase64(file);
+      setImageUrl(b64);
+    } finally {
+      setImgLoading(false);
+      e.target.value = "";
+    }
+  };
 
   return (
     <Card className="bg-gray-800 border-blue-500/30">
@@ -138,6 +174,43 @@ function ItemForm({ initial, categories, onSave, onCancel }: {
             </select>
           </div>
         </div>
+
+        {/* ── Image upload ── */}
+        <div>
+          <p className="text-xs text-gray-400 mb-1.5">Product Image <span className="text-gray-600">(optional)</span></p>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageFile} />
+          {imageUrl ? (
+            <div className="relative w-full h-40 rounded-xl overflow-hidden border border-gray-700 group">
+              <img src={imageUrl} alt="Product" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <ImagePlus size={13} /> Change
+                </button>
+                <button
+                  onClick={() => setImageUrl(undefined)}
+                  className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <Trash size={13} /> Remove
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={imgLoading}
+              className="w-full h-28 rounded-xl border-2 border-dashed border-gray-700 hover:border-blue-500/60 hover:bg-blue-500/5 flex flex-col items-center justify-center gap-2 text-gray-500 hover:text-blue-400 transition-all disabled:opacity-50"
+            >
+              {imgLoading
+                ? <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                : <><ImagePlus size={22} /><span className="text-xs font-medium">Click to upload image</span><span className="text-[10px] text-gray-600">JPG, PNG, WEBP — resized to 600px</span></>
+              }
+            </button>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-gray-400 block mb-1">Selling Price (IQD)</label>
@@ -152,7 +225,6 @@ function ItemForm({ initial, categories, onSave, onCancel }: {
               className="bg-gray-700 border-gray-600 text-gray-200" />
           </div>
         </div>
-        {/* Margin preview */}
         {priceN > 0 && costN >= 0 && (
           <div className="flex items-center gap-3 text-xs">
             <span className="text-gray-500">Margin:</span>
@@ -161,11 +233,10 @@ function ItemForm({ initial, categories, onSave, onCancel }: {
             </span>
           </div>
         )}
-        {/* Active toggle */}
         <label className="flex items-center gap-2 cursor-pointer">
           <div onClick={() => setActive(v => !v)}
             className={`w-9 h-5 rounded-full transition-colors ${active ? "bg-blue-600" : "bg-gray-600"} relative`}>
-            <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-all ${active ? "left-4.5" : "left-0.5"}`}
+            <div className="w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-all"
               style={{ left: active ? "18px" : "2px" }} />
           </div>
           <span className="text-xs text-gray-400">{active ? "Active — visible in Sales" : "Inactive — hidden from Sales"}</span>
@@ -174,7 +245,8 @@ function ItemForm({ initial, categories, onSave, onCancel }: {
           <p className="text-xs text-red-400">⚠️ Cost must be less than selling price</p>
         )}
         <div className="flex gap-2">
-          <Button onClick={() => valid && onSave({ name: name.trim(), category, price: priceN, cost: costN, emoji, active })}
+          <Button
+            onClick={() => valid && onSave({ name: name.trim(), category, price: priceN, cost: costN, emoji, active, imageUrl })}
             disabled={!valid} className="bg-blue-600 hover:bg-blue-500 text-white text-sm">
             <Check size={14} className="mr-1" /> Save Item
           </Button>
@@ -285,11 +357,16 @@ export function MenuManager() {
                     onCancel={() => setEditItemId(null)} />
                 </div>
               ) : (
-                <Card key={item.id} className={`bg-gray-900 border-gray-800 ${!item.active ? "opacity-50" : ""}`}>
+                <Card key={item.id} className={`bg-gray-900 border-gray-800 overflow-hidden ${!item.active ? "opacity-50" : ""}`}>
+                  {item.imageUrl && (
+                    <div className="w-full h-36 overflow-hidden">
+                      <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                    </div>
+                  )}
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-2xl">{item.emoji}</span>
+                        {!item.imageUrl && <span className="text-2xl">{item.emoji}</span>}
                         <div>
                           <p className="text-sm font-semibold text-gray-200">{item.name}</p>
                           <Badge className={`text-xs px-2 py-0 mt-0.5 ${cat?.color ?? "bg-gray-700 text-gray-300"}`}>
