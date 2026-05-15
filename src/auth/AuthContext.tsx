@@ -19,14 +19,22 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const SESSION_KEY = "ink_session";
 
 // ── Mapping helpers ────────────────────────────────────────────
-// Normalise role strings coming from the DB so small inconsistencies
-// ("supply manager" vs "supply_manager", extra spaces, wrong case) don't crash.
+// Normalise role strings coming from the DB.
+// The original supabase_setup.sql used 'supply' for the Supply Manager;
+// the app uses 'supply_manager'. Map all known aliases here.
+const ROLE_ALIASES: Record<string, AppUser["role"]> = {
+  supply:          "supply_manager",
+  supply_mgr:      "supply_manager",
+  "supply manager":"supply_manager",
+  superadmin:      "super_admin",
+  super:           "super_admin",
+};
+
 function normaliseRole(raw: unknown): AppUser["role"] {
-  const normalised = String(raw ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  const s = String(raw ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  if (ROLE_ALIASES[s]) return ROLE_ALIASES[s];
   const valid: AppUser["role"][] = ["super_admin","admin","cashier","accountant","supply_manager","barista"];
-  return valid.includes(normalised as AppUser["role"])
-    ? (normalised as AppUser["role"])
-    : "cashier"; // safe fallback — unknown roles land on the most restricted set
+  return valid.includes(s as AppUser["role"]) ? (s as AppUser["role"]) : "cashier";
 }
 
 function rowToUser(row: Record<string, unknown>): AppUser {
