@@ -161,7 +161,7 @@ export function Orders() {
   const preparingCount = orders.filter(o => o.status === "preparing").length;
   const todayRevenue = todayOrders.filter(o => o.status !== "cancelled").reduce((s, o) => s + o.total, 0);
 
-  const canSeeRevenue = ROLE_CONFIG[role].canViewFinancials || role === "cashier";
+  const canSeeRevenue = (ROLE_CONFIG[role]?.canViewFinancials ?? false) || role === "cashier";
 
   return (
     <div className="p-6 space-y-4">

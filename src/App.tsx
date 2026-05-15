@@ -49,7 +49,9 @@ function AppInner() {
   // ALL hooks must come before any conditional returns (Rules of Hooks)
   useEffect(() => {
     if (user) {
-      const allowed = ROLE_CONFIG[user.role].pages;
+      const config = ROLE_CONFIG[user.role];
+      if (!config) return; // unknown role — don't crash, Login will handle logout
+      const allowed = config.pages;
       if (!allowed.includes(page)) setPage(allowed[0] as Page);
     }
   }, [user]);
@@ -65,6 +67,9 @@ function AppInner() {
   }
 
   if (!user) return <Login />;
+
+  // Guard: if the role from DB is unrecognised, treat as logged-out
+  if (!ROLE_CONFIG[user.role]) return <Login />;
 
   const allowed = ROLE_CONFIG[user.role].pages;
 

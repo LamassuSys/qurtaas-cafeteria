@@ -19,12 +19,22 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const SESSION_KEY = "ink_session";
 
 // ── Mapping helpers ────────────────────────────────────────────
+// Normalise role strings coming from the DB so small inconsistencies
+// ("supply manager" vs "supply_manager", extra spaces, wrong case) don't crash.
+function normaliseRole(raw: unknown): AppUser["role"] {
+  const normalised = String(raw ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  const valid: AppUser["role"][] = ["super_admin","admin","cashier","accountant","supply_manager","barista"];
+  return valid.includes(normalised as AppUser["role"])
+    ? (normalised as AppUser["role"])
+    : "cashier"; // safe fallback — unknown roles land on the most restricted set
+}
+
 function rowToUser(row: Record<string, unknown>): AppUser {
   return {
     id:        row.id        as string,
     username:  row.username  as string,
     fullName:  row.full_name as string,
-    role:      row.role      as AppUser["role"],
+    role:      normaliseRole(row.role),
     active:    row.active    as boolean,
     createdAt: (row.created_at as string | null)?.split("T")[0] ?? "",
     lastLogin: (row.last_login as string | undefined) ?? undefined,
