@@ -1,0 +1,11 @@
+# ── Qurtaas Ink & Drink — Netlify config ──────────────────────
+
+[build]
+  command   = "pnpm build"
+  publish   = "dist"
+
+# SPA fallback: every path → index.html so React Router handles routing
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
