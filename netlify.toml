@@ -1,8 +1,11 @@
 # ── Qurtaas Ink & Drink — Netlify config ──────────────────────
 
 [build]
-  command   = "pnpm build"
+  command   = "pnpm install && pnpm build"
   publish   = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
 
 # SPA fallback: every path → index.html so React Router handles routing
 [[redirects]]
