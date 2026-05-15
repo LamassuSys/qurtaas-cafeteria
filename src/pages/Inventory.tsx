@@ -36,16 +36,41 @@ function itemToForm(item: InventoryItem): FormData {
 }
 
 function ItemModal({
-  title, initial, onSave, onClose,
+  title, initial, categories, onSave, onClose,
 }: {
   title: string;
   initial: FormData;
+  categories: string[];
   onSave: (data: FormData) => void;
   onClose: () => void;
 }) {
   const [form, setForm] = useState<FormData>(initial);
+  const [customCat, setCustomCat] = useState(
+    // If editing and the category isn't in the list, start in "new" mode
+    initial.category && !categories.includes(initial.category) ? initial.category : ""
+  );
+  const [isNewCat, setIsNewCat] = useState(
+    Boolean(initial.category && !categories.includes(initial.category))
+  );
+
   const set = (k: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const handleCategorySelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (e.target.value === "__new__") {
+      setIsNewCat(true);
+      setForm(f => ({ ...f, category: "" }));
+    } else {
+      setIsNewCat(false);
+      setCustomCat("");
+      setForm(f => ({ ...f, category: e.target.value }));
+    }
+  };
+
+  const handleCustomCat = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCustomCat(e.target.value);
+    setForm(f => ({ ...f, category: e.target.value }));
+  };
 
   const valid = form.name.trim() && form.category.trim() &&
     Number(form.stock) >= 0 && Number(form.cost) >= 0 &&
@@ -78,11 +103,38 @@ function ItemModal({
             </div>
           </div>
 
-          {/* Category */}
+          {/* Category dropdown */}
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Category *</label>
-            <Input value={form.category} onChange={set("category")} placeholder="e.g. Beverages"
-              className="bg-gray-800 border-gray-700 text-gray-200 text-sm" />
+            {!isNewCat ? (
+              <select
+                value={form.category || ""}
+                onChange={handleCategorySelect}
+                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors appearance-none cursor-pointer"
+              >
+                <option value="" disabled>Select a category…</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+                <option value="__new__">＋ Add new category…</option>
+              </select>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  autoFocus
+                  value={customCat}
+                  onChange={handleCustomCat}
+                  placeholder="New category name"
+                  className="bg-gray-800 border-gray-700 text-gray-200 text-sm flex-1"
+                />
+                <button
+                  onClick={() => { setIsNewCat(false); setCustomCat(""); setForm(f => ({ ...f, category: "" })); }}
+                  className="px-3 py-2 rounded-xl border border-gray-700 text-gray-400 hover:text-gray-200 hover:bg-gray-800 text-xs transition-colors whitespace-nowrap"
+                >
+                  ← Back
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Numeric fields */}
@@ -164,6 +216,9 @@ export function Inventory() {
   const role = user?.role ?? "cashier";
   const canEdit = ROLE_CONFIG[role]?.canManageInventory ?? false;
 
+  // Unique sorted category list derived from current items
+  const categories = Array.from(new Set(items.map(i => i.category))).sort();
+
   const [search,       setSearch]       = useState("");
   const [statusFilter, setStatus]       = useState<"all"|"low"|"medium"|"ok">("all");
   const [sortBy,       setSortBy]       = useState<"name"|"stock"|"value">("stock");
@@ -221,8 +276,8 @@ export function Inventory() {
     <div className="p-6 space-y-4">
 
       {/* Modals */}
-      {addModal  && <ItemModal title="Add Inventory Item" initial={EMPTY_FORM} onSave={handleAdd} onClose={() => setAddModal(false)} />}
-      {editItem  && <ItemModal title="Edit Item" initial={itemToForm(editItem)} onSave={handleEdit} onClose={() => setEditItem(null)} />}
+      {addModal  && <ItemModal title="Add Inventory Item" initial={EMPTY_FORM} categories={categories} onSave={handleAdd} onClose={() => setAddModal(false)} />}
+      {editItem  && <ItemModal title="Edit Item" initial={itemToForm(editItem)} categories={categories} onSave={handleEdit} onClose={() => setEditItem(null)} />}
       {deleteTarget && <DeleteModal name={deleteTarget.name} onConfirm={handleDelete} onClose={() => setDeleteTarget(null)} />}
 
       {/* KPI row */}
