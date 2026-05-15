@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { CustomerPortal } from "@/pages/CustomerPortal";
+import { LandingPage } from "@/pages/LandingPage";
 import { AuthProvider, useAuth } from "@/auth/AuthContext";
 import { MenuProvider } from "@/data/menuStore";
 import { ROLE_CONFIG } from "@/auth/roles";
@@ -84,11 +85,13 @@ function AppInner() {
   );
 }
 
-// ── URL-based router: /table/:n → CustomerPortal, else staff app ──
+// ── URL-based router: /table/:n → CustomerPortal, else landing or staff app ──
 function Router() {
+  const [mode, setMode] = useState<"landing" | "staff">("landing");
   const match = window.location.pathname.match(/^\/table\/(\d+)$/);
   if (match) return <CustomerPortal tableNumber={parseInt(match[1])} />;
-  return <AppInner />;
+  if (mode === "staff") return <AppInner />;
+  return <LandingPage onStaffLogin={() => setMode("staff")} />;
 }
 
 export default function App() {
