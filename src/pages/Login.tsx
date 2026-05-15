@@ -35,16 +35,8 @@ export function Login() {
         <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-8">
           {/* Brand */}
           <div className="flex flex-col items-center mb-8">
-            <Logo size={72} />
+            <Logo size={160} />
             <div className="mt-4 text-center">
-              <div className="flex items-baseline justify-center gap-1.5">
-                <span className="font-black text-2xl text-blue-500 tracking-tight">Ink</span>
-                <span className="text-gray-500 text-lg">&amp;</span>
-                <span className="font-black text-2xl text-amber-400 tracking-tight">Drink</span>
-              </div>
-              <p className="text-xs text-gray-500 tracking-widest uppercase mt-0.5">by Qurtaas</p>
-            </div>
-            <div className="mt-3 text-center">
               <p className="text-gray-300 text-sm font-medium">Management System</p>
               <p className="text-gray-600 text-xs mt-0.5">{t("sign_in")}</p>
             </div>
