@@ -39,12 +39,7 @@ export function Dashboard() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="bg-gray-800/60 border border-gray-700 rounded-xl px-5 py-3 flex flex-wrap gap-3 text-xs text-gray-400">
-        <span className="text-gray-500 font-semibold uppercase tracking-wider mr-1">Stack:</span>
-        {[["Frontend","React + TypeScript + Tailwind + shadcn/ui"],["Backend","Node.js + Express + PostgreSQL"],["Analytics","Python FastAPI + scikit-learn"],["Auth","JWT + bcrypt"],["Deploy","Docker + Netlify/Railway"]].map(([k,v])=>(
-          <span key={k}><span className="text-gray-500">{k}:</span> <span className="text-blue-400 font-medium">{v}</span></span>
-        ))}
-      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {KPIs.map(({ label, value, sub, icon: Icon, color, bg, positive }) => (
           <Card key={label} className={`border ${bg} bg-gray-900`}>
