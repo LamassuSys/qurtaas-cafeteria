@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { CustomerPortal } from "@/pages/CustomerPortal";
 import { AuthProvider, useAuth } from "@/auth/AuthContext";
 import { MenuProvider } from "@/data/menuStore";
 import { ROLE_CONFIG } from "@/auth/roles";
@@ -83,13 +84,20 @@ function AppInner() {
   );
 }
 
+// ── URL-based router: /table/:n → CustomerPortal, else staff app ──
+function Router() {
+  const match = window.location.pathname.match(/^\/table\/(\d+)$/);
+  if (match) return <CustomerPortal tableNumber={parseInt(match[1])} />;
+  return <AppInner />;
+}
+
 export default function App() {
   return (
     <I18nProvider>
       <AuthProvider>
         <MenuProvider>
           <OrdersProvider>
-            <AppInner />
+            <Router />
           </OrdersProvider>
         </MenuProvider>
       </AuthProvider>

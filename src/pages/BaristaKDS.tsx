@@ -32,7 +32,12 @@ function KDSCard({ order, onAction, username }: { order: Order; onAction: () => 
     }`}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {order.tableNumber && (
+            <span className="text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">
+              🪑 Table {order.tableNumber}
+            </span>
+          )}
           <span className={`text-2xl font-black ${urgent && order.status === "pending" ? "text-red-400" : "text-gray-100"}`}>
             #{order.orderNumber}
           </span>

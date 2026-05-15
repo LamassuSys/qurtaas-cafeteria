@@ -48,6 +48,11 @@ function OrderCard({ order, canAdvance, canCancel, onAdvance, onCancel }: {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-bold text-gray-200">#{order.orderNumber}</span>
             <Badge className={`text-xs px-2 py-0 ${meta.bg} ${meta.color} border-0`}>{meta.label}</Badge>
+            {order.tableNumber && (
+              <span className="text-xs bg-amber-500/15 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded font-medium">
+                🪑 {order.tableNumber}
+              </span>
+            )}
             {order.customerName && order.customerName !== "Walk-in" && (
               <span className="flex items-center gap-1 text-xs text-gray-400">
                 <User size={11} />{order.customerName}
