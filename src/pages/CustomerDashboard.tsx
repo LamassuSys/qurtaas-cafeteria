@@ -228,9 +228,7 @@ export function CustomerDashboard({
 
       // 2. Credit wallet + mark card as used (in parallel)
       const [walletRes, cardRes] = await Promise.all([
-        supabase.rpc
-          ? supabase.from("customers").update({ wallet_balance: (profile?.walletBalance ?? 0) + amount }).eq("id", customerId)
-          : supabase.from("customers").update({ wallet_balance: (profile?.walletBalance ?? 0) + amount }).eq("id", customerId),
+        supabase.from("customers").update({ wallet_balance: (profile?.walletBalance ?? 0) + amount }).eq("id", customerId),
         supabase.from("gift_cards").update({
           status:      "used",
           balance:     0,
