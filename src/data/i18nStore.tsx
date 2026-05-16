@@ -22,6 +22,7 @@ const T = {
     nav_marketing:   "Marketing",
     nav_inventory:   "Inventory",
     nav_users:       "Users",
+    nav_customers:   "Customers",
     nav_menu:        "Menu Manager",
     // Auth
     sign_in:         "Sign In",
@@ -104,6 +105,7 @@ const T = {
     // Customer portal
     table:           "Table",
     welcome_table:   "Welcome to",
+    welcome_back:    "Welcome back,",
     guest_mode:      "Continue as Guest",
     have_account:    "I have an account",
     new_customer:    "New customer",
@@ -138,6 +140,7 @@ const T = {
     nav_marketing:   "التسويق",
     nav_inventory:   "المخزون",
     nav_users:       "المستخدمون",
+    nav_customers:   "العملاء",
     nav_menu:        "إدارة القائمة",
     // Auth
     sign_in:         "تسجيل الدخول",
@@ -220,6 +223,7 @@ const T = {
     // Customer portal
     table:           "طاولة",
     welcome_table:   "أهلاً بك في",
+    welcome_back:    "أهلاً بعودتك،",
     guest_mode:      "متابعة كزائر",
     have_account:    "لدي حساب",
     new_customer:    "عميل جديد",

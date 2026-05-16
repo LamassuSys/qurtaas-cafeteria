@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useI18n } from "@/data/i18nStore";
-import { BookOpen, Coffee, Sandwich, Moon, ChevronDown, ArrowRight } from "lucide-react";
+import { BookOpen, Coffee, Sandwich, Moon, ChevronDown, ArrowRight, UserCircle2 } from "lucide-react";
 
 // ── Brand palette (matches Ink & Drink logo) ──────────────────
 // Navy blue:  #0b1f4a  /  #1a3a6e  /  #2354a4
@@ -13,6 +13,7 @@ const COPY = {
     tagline:    "Your Study Sanctuary",
     subtitle:   "Where ideas flow as freely as the coffee — a cozy corner crafted for students who demand focus and flavor.",
     cta_order:  "Order from Your Table",
+    cta_account:"My Account",
     cta_scroll: "Explore",
     why_title:  "Why Ink & Drink?",
     features: [
@@ -51,6 +52,7 @@ const COPY = {
     tagline:    "ملاذك الدراسي المثالي",
     subtitle:   "حيث تتدفق الأفكار بحرية كالقهوة — ركنٌ دافئ صُمِّم خصيصاً للطلاب الباحثين عن التركيز والمتعة.",
     cta_order:  "اطلب من طاولتك",
+    cta_account:"حسابي",
     cta_scroll: "اكتشف",
     why_title:  "لماذا حبر ومشروب؟",
     features: [
@@ -147,7 +149,7 @@ export function LandingPage({ onStaffLogin }: { onStaffLogin: () => void }) {
         </div>
 
         {/* Nav actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setLang(lang === "en" ? "ar" : "en")}
             className="text-xs px-2.5 py-1.5 rounded-lg transition-all"
@@ -162,6 +164,22 @@ export function LandingPage({ onStaffLogin }: { onStaffLogin: () => void }) {
             }}
           >
             {lang === "en" ? "العربية" : "English"}
+          </button>
+          {/* Customer account button */}
+          <button
+            onClick={() => { window.location.href = "/customer"; }}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+            style={{ background: "rgba(245,168,0,0.12)", color: "#f5a800", border: "1px solid rgba(245,168,0,0.3)" }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = "#f5a800";
+              (e.currentTarget as HTMLButtonElement).style.color = "#07111f";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,168,0,0.12)";
+              (e.currentTarget as HTMLButtonElement).style.color = "#f5a800";
+            }}
+          >
+            <UserCircle2 size={13} /> {c.cta_account}
           </button>
           <button
             onClick={onStaffLogin}
@@ -230,7 +248,7 @@ export function LandingPage({ onStaffLogin }: { onStaffLogin: () => void }) {
         </div>
 
         {/* CTAs */}
-        <div className="relative z-10 flex flex-col sm:flex-row items-center gap-3">
+        <div className="relative z-10 flex flex-col sm:flex-row items-center gap-3 flex-wrap justify-center">
           <button
             onClick={scrollToOrder}
             className="group flex items-center gap-2 font-bold px-7 py-4 rounded-2xl text-base transition-all active:scale-[0.98]"
@@ -250,6 +268,26 @@ export function LandingPage({ onStaffLogin }: { onStaffLogin: () => void }) {
           >
             ☕ {c.cta_order}
             <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+          </button>
+          {/* My Account CTA */}
+          <button
+            onClick={() => { window.location.href = "/customer"; }}
+            className="group flex items-center gap-2 font-bold px-7 py-4 rounded-2xl text-base transition-all active:scale-[0.98]"
+            style={{
+              background: "rgba(245,168,0,0.1)",
+              color: "#f5a800",
+              border: "1px solid rgba(245,168,0,0.35)",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,168,0,0.2)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(245,168,0,0.6)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,168,0,0.1)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(245,168,0,0.35)";
+            }}
+          >
+            <UserCircle2 size={16} /> {c.cta_account}
           </button>
           <button
             onClick={scrollToOrder}

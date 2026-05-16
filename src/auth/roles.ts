@@ -9,7 +9,7 @@ export type Role =
 export type PageId =
   | "dashboard" | "sales" | "reports" | "analytics"
   | "predictions" | "drawbacks" | "marketing" | "inventory"
-  | "users" | "menu" | "pos" | "orders" | "barista_kds";
+  | "users" | "customers" | "menu" | "pos" | "orders" | "barista_kds";
 
 export interface RoleConfig {
   label: string;
@@ -17,6 +17,7 @@ export interface RoleConfig {
   bg: string;
   pages: PageId[];
   canManageUsers: boolean;
+  canManageCustomers: boolean;
   canRecordSales: boolean;
   canViewFinancials: boolean;
   canManageInventory: boolean;
@@ -27,8 +28,9 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     label: "Super Admin",
     color: "text-red-400",
     bg: "bg-red-500/20 border-red-500/30",
-    pages: ["dashboard","pos","orders","sales","reports","analytics","predictions","drawbacks","marketing","inventory","users","menu","barista_kds"],
+    pages: ["dashboard","pos","orders","sales","reports","analytics","predictions","drawbacks","marketing","inventory","users","customers","menu","barista_kds"],
     canManageUsers: true,
+    canManageCustomers: true,
     canRecordSales: true,
     canViewFinancials: true,
     canManageInventory: true,
@@ -37,8 +39,9 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     label: "Admin",
     color: "text-purple-400",
     bg: "bg-purple-500/20 border-purple-500/30",
-    pages: ["dashboard","pos","orders","sales","reports","analytics","predictions","drawbacks","marketing","inventory","barista_kds"],
+    pages: ["dashboard","pos","orders","sales","reports","analytics","predictions","drawbacks","marketing","inventory","customers","barista_kds"],
     canManageUsers: false,
+    canManageCustomers: true,
     canRecordSales: true,
     canViewFinancials: true,
     canManageInventory: true,
@@ -49,6 +52,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     bg: "bg-emerald-500/20 border-emerald-500/30",
     pages: ["dashboard","pos","orders"],
     canManageUsers: false,
+    canManageCustomers: false,
     canRecordSales: true,
     canViewFinancials: false,
     canManageInventory: false,
@@ -59,6 +63,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     bg: "bg-blue-500/20 border-blue-500/30",
     pages: ["dashboard","orders","reports","analytics","predictions"],
     canManageUsers: false,
+    canManageCustomers: false,
     canRecordSales: false,
     canViewFinancials: true,
     canManageInventory: false,
@@ -69,6 +74,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     bg: "bg-amber-500/20 border-amber-500/30",
     pages: ["dashboard","inventory","analytics"],
     canManageUsers: false,
+    canManageCustomers: false,
     canRecordSales: false,
     canViewFinancials: false,
     canManageInventory: true,
@@ -79,6 +85,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     bg: "bg-orange-500/20 border-orange-500/30",
     pages: ["orders","barista_kds"],
     canManageUsers: false,
+    canManageCustomers: false,
     canRecordSales: false,
     canViewFinancials: false,
     canManageInventory: false,

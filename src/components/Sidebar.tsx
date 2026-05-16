@@ -3,7 +3,7 @@ import {
   LayoutDashboard, ShoppingCart, BarChart3, TrendingUp,
   Brain, AlertTriangle, Megaphone, Package, ChevronLeft,
   ChevronRight, Users, UtensilsCrossed, MonitorSmartphone,
-  ClipboardList, ChefHat
+  ClipboardList, ChefHat, UserCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoFull } from "@/components/Logo";
@@ -14,7 +14,7 @@ import { useI18n, type TKey } from "@/data/i18nStore";
 export type Page =
   | "dashboard" | "sales" | "reports" | "analytics"
   | "predictions" | "drawbacks" | "marketing" | "inventory"
-  | "users" | "menu" | "pos" | "orders" | "barista_kds";
+  | "users" | "customers" | "menu" | "pos" | "orders" | "barista_kds";
 
 const ALL_NAV: { id: Page; labelKey: TKey; icon: LucideIcon }[] = [
   { id: "dashboard",   labelKey: "nav_dashboard",   icon: LayoutDashboard },
@@ -29,6 +29,7 @@ const ALL_NAV: { id: Page; labelKey: TKey; icon: LucideIcon }[] = [
   { id: "marketing",   labelKey: "nav_marketing",   icon: Megaphone },
   { id: "inventory",   labelKey: "nav_inventory",   icon: Package },
   { id: "users",       labelKey: "nav_users",       icon: Users },
+  { id: "customers",   labelKey: "nav_customers",   icon: UserCircle2 },
   { id: "menu",        labelKey: "nav_menu",        icon: UtensilsCrossed },
 ];
 
@@ -72,7 +73,7 @@ export function Sidebar({ current, onNavigate, collapsed, onToggle }: SidebarPro
           >
             <Icon size={17} className="shrink-0" />
             {!collapsed && <span>{t(labelKey)}</span>}
-            {!collapsed && (id === "users" || id === "menu") && (
+            {!collapsed && (id === "users" || id === "menu" || id === "customers") && (
               <span className="ml-auto text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 rounded px-1.5 py-0.5 font-bold">SA</span>
             )}
           </button>

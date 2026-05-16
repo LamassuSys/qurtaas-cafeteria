@@ -32,6 +32,7 @@ export interface Order {
   createdAt:     string;
   statusHistory: StatusHistoryEntry[];
   tableNumber?:  number;
+  customerId?:   string;
 }
 
 // ── Status display config ─────────────────────────────────────
@@ -64,6 +65,7 @@ function rowToOrder(row: Record<string, unknown>): Order {
     createdBy:    row.created_by    as string,
     createdAt:    row.created_at    as string,
     tableNumber:  row.table_number  ? Number(row.table_number) : undefined,
+    customerId:   (row.customer_id as string | null) ?? undefined,
     items: rawItems.map(i => ({
       menuItemId: i.menu_item_id as string,
       name:       i.name         as string,
@@ -90,7 +92,7 @@ function rowToOrder(row: Record<string, unknown>): Order {
 interface OrdersCtx {
   orders:       Order[];
   loading:      boolean;
-  createOrder:  (items: OrderItem[], customerName: string, notes: string, createdBy: string, tableNumber?: number) => Promise<Order>;
+  createOrder:  (items: OrderItem[], customerName: string, notes: string, createdBy: string, tableNumber?: number, customerId?: string) => Promise<Order>;
   updateStatus: (orderId: string, newStatus: OrderStatus, by: string) => Promise<void>;
   cancelOrder:  (orderId: string, by: string) => Promise<void>;
 }
@@ -135,12 +137,18 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     notes: string,
     createdBy: string,
     tableNumber?: number,
+    customerId?: string,
   ): Promise<Order> => {
     const total = items.reduce((s, i) => s + i.price * i.qty, 0);
 
     const { data: orderRow, error: oErr } = await supabase
       .from("orders")
-      .insert({ customer_name: customerName || "Walk-in", notes, total, created_by: createdBy, status: "pending", table_number: tableNumber ?? null })
+      .insert({
+        customer_name: customerName || "Walk-in", notes, total,
+        created_by: createdBy, status: "pending",
+        table_number: tableNumber ?? null,
+        customer_id: customerId ?? null,
+      })
       .select()
       .single();
 

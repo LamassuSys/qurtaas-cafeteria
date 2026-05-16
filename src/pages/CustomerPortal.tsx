@@ -4,9 +4,10 @@ import { useOrders, type OrderItem } from "@/data/ordersStore";
 import { useI18n } from "@/data/i18nStore";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
+import { CustomerDashboard } from "@/pages/CustomerDashboard";
 import {
   Plus, Minus, ShoppingCart, ArrowLeft,
-  Loader2, User, Phone, Hash, Home,
+  Loader2, User, Phone, Hash, Home, LayoutDashboard,
 } from "lucide-react";
 
 // ── Brand tokens (matches landing page & logo) ─────────────────
@@ -27,7 +28,7 @@ const C = {
 
 // ── Types ──────────────────────────────────────────────────────
 type AuthMode   = "choose" | "guest" | "login" | "register";
-type PortalStep = "auth" | "menu" | "confirmed";
+type PortalStep = "auth" | "welcome" | "menu" | "confirmed" | "dashboard";
 
 interface CustomerSession {
   name:       string;
@@ -199,7 +200,7 @@ export function CustomerPortal({ tableNumber }: { tableNumber: number }) {
       if (!data) { setAuthError(t("invalid_creds")); return; }
       const row = data as Record<string, unknown>;
       setSession({ name: row.name as string, isGuest: false, customerId: row.id as string });
-      setStep("menu");
+      setStep("welcome");
     } catch { setAuthError(t("invalid_creds")); }
     finally { setAuthLoading(false); }
   };
@@ -214,7 +215,7 @@ export function CustomerPortal({ tableNumber }: { tableNumber: number }) {
       if (e) { setAuthError(e.code === "23505" ? t("phone_exists") : e.message); return; }
       const row = data as Record<string, unknown>;
       setSession({ name: row.name as string, isGuest: false, customerId: row.id as string });
-      setStep("menu");
+      setStep("welcome");
     } catch (err: unknown) { setAuthError((err as Error).message); }
     finally { setAuthLoading(false); }
   };
@@ -223,12 +224,90 @@ export function CustomerPortal({ tableNumber }: { tableNumber: number }) {
     if (!cart.length || !session) return;
     setOrderLoading(true);
     try {
-      const order = await createOrder(cart, session.name, notes, `table-${tableNumber}`, tableNumber);
+      const order = await createOrder(
+        cart, session.name, notes, `table-${tableNumber}`,
+        tableNumber, session.customerId,
+      );
       setPlacedOrderId(order.id);
       setStep("confirmed"); setShowCart(false); setCart([]); setNotes("");
     } catch (e) { console.error(e); }
     finally { setOrderLoading(false); }
   };
+
+  // ── CUSTOMER DASHBOARD SCREEN ─────────────────────────────
+  if (step === "dashboard" && session?.customerId) {
+    return (
+      <CustomerDashboard
+        customerId={session.customerId}
+        initialName={session.name}
+        tableNumber={tableNumber}
+        onBack={() => setStep("menu")}
+      />
+    );
+  }
+
+  // ── WELCOME SCREEN (after login / register) ───────────────
+  if (step === "welcome" && session) {
+    return (
+      <Wrapper tableNumber={tableNumber}>
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-57px)] px-6 py-10">
+          <div className="w-full max-w-xs space-y-5">
+            {/* Greeting */}
+            <div className="text-center">
+              <div className="text-5xl mb-3">👋</div>
+              <h1 className="text-2xl font-black mb-1" style={{ color: C.gold }}>
+                {t("welcome_back")}
+              </h1>
+              <p className="text-xl font-bold" style={{ color: C.text }}>{session.name}</p>
+              <p className="text-sm mt-2" style={{ color: C.muted }}>
+                {t("table")} {tableNumber} · What would you like to do?
+              </p>
+            </div>
+
+            {/* Option 1: My Account */}
+            <button
+              onClick={() => setStep("dashboard")}
+              className="w-full rounded-2xl p-5 text-left transition-all active:scale-[0.98] flex items-center gap-4"
+              style={{ background: C.goldDim, border: `1px solid ${C.goldBorder}` }}
+              onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = C.gold)}
+              onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = C.goldBorder)}
+            >
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-2xl"
+                style={{ background: C.gold + "22" }}>
+                🏆
+              </div>
+              <div>
+                <p className="font-bold" style={{ color: C.gold }}>My Account</p>
+                <p className="text-xs mt-0.5" style={{ color: C.muted }}>
+                  View membership, points, order history &amp; live tracking
+                </p>
+              </div>
+            </button>
+
+            {/* Option 2: Browse Menu */}
+            <button
+              onClick={() => setStep("menu")}
+              className="w-full rounded-2xl p-5 text-left transition-all active:scale-[0.98] flex items-center gap-4"
+              style={{ background: C.surface, border: `1px solid ${C.border}` }}
+              onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = C.borderHi)}
+              onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = C.border)}
+            >
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-2xl"
+                style={{ background: C.elevated }}>
+                ☕
+              </div>
+              <div>
+                <p className="font-bold" style={{ color: C.text }}>Browse Menu &amp; Order</p>
+                <p className="text-xs mt-0.5" style={{ color: C.muted }}>
+                  Pick items and place an order from {t("table")} {tableNumber}
+                </p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </Wrapper>
+    );
+  }
 
   // ── AUTH SCREEN ────────────────────────────────────────────
   if (step === "auth") {
@@ -450,6 +529,19 @@ export function CustomerPortal({ tableNumber }: { tableNumber: number }) {
             ) : (
               <p className="text-center text-xs" style={{ color: C.faint }}>🔄 This page updates automatically</p>
             )}
+
+            {/* Link to customer dashboard */}
+            {session?.customerId && (
+              <button
+                onClick={() => setStep("dashboard")}
+                className="w-full py-3 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                style={{ color: C.gold, border: `1px solid ${C.goldBorder}` }}
+                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = C.gold)}
+                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = C.goldBorder)}
+              >
+                <LayoutDashboard size={15} /> View My Account
+              </button>
+            )}
           </div>
         </div>
       </Wrapper>
@@ -460,11 +552,37 @@ export function CustomerPortal({ tableNumber }: { tableNumber: number }) {
   return (
     <Wrapper tableNumber={tableNumber} cartCount={cartCount} onCartClick={() => setShowCart(true)} showCartBtn={!showCart}>
 
-      {/* Greeting bar */}
+      {/* Greeting + My Account bar */}
       {session && (
-        <div className="px-4 py-2 text-center text-sm font-medium border-b"
-          style={{ background: C.goldDim, borderColor: C.goldBorder, color: C.gold }}>
-          👋 {session.name}
+        <div className="border-b" style={{ borderColor: C.border }}>
+          {/* Name strip */}
+          <div className="px-4 py-2 flex items-center justify-between"
+            style={{ background: C.goldDim }}>
+            <span className="text-sm font-medium" style={{ color: C.gold }}>👋 {session.name}</span>
+            {session.customerId && (
+              <span className="text-xs" style={{ color: C.muted }}>Loyalty member</span>
+            )}
+          </div>
+          {/* My Account banner (only for registered customers) */}
+          {session.customerId && (
+            <button
+              onClick={() => setStep("dashboard")}
+              className="w-full px-4 py-3 flex items-center gap-3 transition-colors text-left"
+              style={{ background: C.surface }}
+              onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = C.elevated)}
+              onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = C.surface)}
+            >
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
+                style={{ background: C.goldDim, border: `1px solid ${C.goldBorder}` }}>
+                🏆
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold" style={{ color: C.gold }}>My Account</p>
+                <p className="text-xs" style={{ color: C.muted }}>Points, membership, order history &amp; tracking</p>
+              </div>
+              <LayoutDashboard size={14} style={{ color: C.muted }} />
+            </button>
+          )}
         </div>
       )}
 
