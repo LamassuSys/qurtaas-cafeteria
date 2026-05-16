@@ -261,11 +261,6 @@ export function LandingPage({ onStaffLogin }: { onStaffLogin: () => void }) {
         {/* Content */}
         <div className="relative z-10 max-w-3xl mx-auto">
           {/* Eyebrow */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-6"
-            style={{ background: "rgba(245,168,0,0.15)", border: `1px solid rgba(245,168,0,0.3)`, color: B.gold }}>
-            ✦ {lang === "en" ? "Erbil's Study Café" : "مقهى الدراسة في أربيل"}
-          </div>
-
           {/* Headline */}
           <h1 className="font-black leading-[1.05] mb-6"
             style={{ fontSize: "clamp(2.8rem, 7vw, 5.5rem)", color: B.white }}>
