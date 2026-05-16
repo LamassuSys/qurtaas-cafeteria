@@ -145,6 +145,11 @@ export function CustomerDashboard({
   // Membership state
   const [membership, setMembership] = useState<CustomerMembership | null>(null);
 
+  // Cup-usage tracking (for membership free-cup logic)
+  const [cupUsageTimes,        setCupUsageTimes]        = useState<Date[]>([]);
+  const [useMembershipDiscount,setUseMembershipDiscount] = useState(true);
+  const [tickNow,              setTickNow]              = useState(Date.now());
+
   // Wallet state
   const [walletTxs,     setWalletTxs]     = useState<WalletTx[]>([]);
   const [walletLoading, setWalletLoading] = useState(false);
@@ -281,6 +286,26 @@ export function CustomerDashboard({
     }
   };
 
+  // ── Fetch cup usage history (last 48 h covers any window) ──
+  const fetchCupUsages = useCallback(async () => {
+    const since = new Date(Date.now() - 48 * 3_600_000).toISOString();
+    const { data } = await supabase
+      .from("membership_cup_usage")
+      .select("used_at, cups_used")
+      .eq("customer_id", customerId)
+      .gte("used_at", since)
+      .order("used_at", { ascending: true });
+    if (data) {
+      // Expand rows where cups_used > 1 into individual timestamps
+      const times: Date[] = [];
+      (data as Record<string, unknown>[]).forEach(r => {
+        const t = new Date(r.used_at as string);
+        for (let i = 0; i < Number(r.cups_used); i++) times.push(t);
+      });
+      setCupUsageTimes(times);
+    }
+  }, [customerId]);
+
   // ── Fetch active membership ────────────────────────────────
   const fetchMembership = useCallback(async () => {
     try {
@@ -315,22 +340,27 @@ export function CustomerDashboard({
   useEffect(() => {
     fetchProfile();
     fetchMembership();
-    // Real-time: refresh when loyalty trigger updates this customer row
+    fetchCupUsages();
+    // Real-time: customer row updates
     const ch = supabase.channel(`cust_profile_${customerId}`)
-      .on("postgres_changes", {
-        event: "UPDATE", schema: "public", table: "customers",
-        filter: `id=eq.${customerId}`,
-      }, fetchProfile)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "customers", filter: `id=eq.${customerId}` }, fetchProfile)
       .subscribe();
-    // Real-time: refresh membership when it changes
+    // Real-time: membership changes
     const mch = supabase.channel(`cust_membership_${customerId}`)
-      .on("postgres_changes", {
-        event: "*", schema: "public", table: "customer_memberships",
-        filter: `customer_id=eq.${customerId}`,
-      }, fetchMembership)
+      .on("postgres_changes", { event: "*", schema: "public", table: "customer_memberships", filter: `customer_id=eq.${customerId}` }, fetchMembership)
       .subscribe();
-    return () => { supabase.removeChannel(ch); supabase.removeChannel(mch); };
+    // Real-time: new cup usages (e.g. from another device)
+    const uch = supabase.channel(`cust_cups_${customerId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "membership_cup_usage", filter: `customer_id=eq.${customerId}` }, fetchCupUsages)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); supabase.removeChannel(mch); supabase.removeChannel(uch); };
   }, [customerId]);
+
+  // ── 1-second tick for countdown ───────────────────────────
+  useEffect(() => {
+    const id = setInterval(() => setTickNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // ── Order status notifications ─────────────────────────────
   useEffect(() => {
@@ -367,6 +397,24 @@ export function CustomerDashboard({
 
   const dismissToast = (id: string) => setToasts(t => t.filter(x => x.id !== id));
 
+  // ── Membership cup-window calculations (recalc every tick) ──
+  const windowMs       = (membership?.windowHours ?? 0) * 3_600_000;
+  const windowBoundary = new Date(tickNow - windowMs);
+  const cupsInWindow   = windowMs > 0 ? cupUsageTimes.filter(t => t >= windowBoundary).length : 0;
+  const cupsRemaining  = membership ? Math.max(0, membership.cupsPerWindow - cupsInWindow) : 0;
+  const inWindowTimes  = cupUsageTimes.filter(t => t >= windowBoundary);
+  const oldestInWindow = inWindowTimes.length > 0 ? inWindowTimes.reduce((a, b) => (a < b ? a : b)) : null;
+  const nextWindowMs   = oldestInWindow ? oldestInWindow.getTime() + windowMs - tickNow : 0;
+  const secsToNext     = Math.max(0, Math.ceil(nextWindowMs / 1000));
+
+  const fmtCountdown = (secs: number) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return h > 0 ? `${h}h ${pad(m)}m ${pad(s)}s` : `${pad(m)}:${pad(s)}`;
+  };
+
   // ── Menu / cart helpers ────────────────────────────────────
   const activeItems   = items.filter(i => i.active);
   const displayItems  = catFilter === "__all__"
@@ -374,7 +422,20 @@ export function CustomerDashboard({
     : activeItems.filter(i => i.category === catFilter);
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
-  const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+  // Membership discount applied to cart (first N units free)
+  const freeUnitsAvail = (membership && useMembershipDiscount) ? cupsRemaining : 0;
+  let   _freeLeft      = freeUnitsAvail;
+  let   discountAmount = 0;
+  const cartAnnotated  = cart.map(item => {
+    const freeQty = Math.min(item.qty, _freeLeft);
+    _freeLeft    -= freeQty;
+    discountAmount += freeQty * item.price;
+    return { ...item, freeQty, paidQty: item.qty - freeQty };
+  });
+  const freeUnitsApplied = freeUnitsAvail - Math.max(0, _freeLeft);
+  const cartGross  = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const cartTotal  = cartGross - discountAmount;   // net total customer pays
 
   const addToCart = (item: typeof activeItems[number]) => {
     setCart(prev => {
@@ -393,20 +454,45 @@ export function CustomerDashboard({
     if (!cart.length || !tableNumber) return;
     setPlacing(true);
     try {
+      // Build order cart: split items into free (price=0) + paid portions
+      const cartForOrder: OrderItem[] = [];
+      let freeLeft = freeUnitsAvail;
+      for (const item of cart) {
+        const freeQty = Math.min(item.qty, freeLeft);
+        const paidQty = item.qty - freeQty;
+        freeLeft -= freeQty;
+        if (freeQty > 0) cartForOrder.push({ ...item, qty: freeQty, price: 0 });
+        if (paidQty > 0) cartForOrder.push({ ...item, qty: paidQty });
+      }
+
       const order = await createOrder(
-        cart, profile?.name ?? initialName, orderNotes,
+        cartForOrder, profile?.name ?? initialName, orderNotes,
         `table-${tableNumber}`, tableNumber, customerId,
       );
+
+      // Log membership cup usage if any free cups were applied
+      if (freeUnitsApplied > 0 && membership) {
+        const nowIso = new Date().toISOString();
+        await supabase.from("membership_cup_usage").insert({
+          customer_id:            customerId,
+          customer_membership_id: membership.id,
+          cups_used:              freeUnitsApplied,
+          order_id:               order.id,
+          used_at:                nowIso,
+        });
+        // Update local state immediately (no need to refetch)
+        const newTimes = Array<Date>(freeUnitsApplied).fill(new Date(nowIso));
+        setCupUsageTimes(prev => [...prev, ...newTimes]);
+      }
+
       setOrderedId(order.id);
       setCart([]); setOrderNotes(""); setShowCart(false);
       setTab("account");
-      // Show a toast confirming placement
-      const t: Toast = {
-        id: `placed-${order.id}`,
-        message: `Order #${order.orderNumber} placed! We'll notify you when it's ready. 🎉`,
-        color: C.gold,
-        icon: <CheckCircle size={14} />,
-      };
+
+      const msg = freeUnitsApplied > 0
+        ? `Order #${order.orderNumber} placed! ${freeUnitsApplied} free cup${freeUnitsApplied > 1 ? "s" : ""} used 🎉`
+        : `Order #${order.orderNumber} placed! We'll notify you when it's ready. 🎉`;
+      const t: Toast = { id: `placed-${order.id}`, message: msg, color: C.gold, icon: <CheckCircle size={14} /> };
       setToasts(prev => [t, ...prev].slice(0, 5));
       setTimeout(() => setToasts(p => p.filter(x => x.id !== t.id)), 8000);
     } catch (e) { console.error(e); }
@@ -549,58 +635,94 @@ export function CustomerDashboard({
               </div>
 
               {/* Active membership plan card */}
-              {membership && (
-                <div className="rounded-2xl p-4 relative overflow-hidden"
-                  style={{
-                    background: membership.planId === "priority"
-                      ? "linear-gradient(135deg, rgba(245,168,0,0.12) 0%, rgba(180,120,0,0.06) 100%)"
-                      : "linear-gradient(135deg, rgba(96,165,250,0.12) 0%, rgba(37,99,235,0.06) 100%)",
-                    border: membership.planId === "priority"
-                      ? "1px solid rgba(245,168,0,0.35)"
-                      : "1px solid rgba(96,165,250,0.35)",
-                  }}>
-                  {/* bg watermark */}
-                  <div className="absolute -right-4 -top-4 opacity-10 pointer-events-none">
-                    {membership.planId === "priority"
-                      ? <Crown size={64} style={{ color: "#f5a800" }} />
-                      : <Star  size={64} style={{ color: "#60a5fa" }} />}
-                  </div>
-                  <div className="relative">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        {membership.planId === "priority"
-                          ? <Crown size={16} style={{ color: "#f5a800" }} />
-                          : <Star  size={16} style={{ color: "#60a5fa" }} />}
-                        <p className="font-black text-base" style={{ color: C.text }}>{membership.planName}</p>
-                      </div>
-                      <span className="px-2.5 py-1 rounded-full text-xs font-bold"
-                        style={{
-                          background: membership.planId === "priority" ? "rgba(245,168,0,0.15)" : "rgba(96,165,250,0.15)",
-                          color:      membership.planId === "priority" ? "#f5a800" : "#60a5fa",
-                          border:     membership.planId === "priority" ? "1px solid rgba(245,168,0,0.3)" : "1px solid rgba(96,165,250,0.3)",
-                        }}>
-                        Active ✓
-                      </span>
+              {membership && (() => {
+                const isPriority = membership.planId === "priority";
+                const planColor  = isPriority ? "#f5a800" : "#60a5fa";
+                const planBg     = isPriority ? "rgba(245,168,0,0.12)"  : "rgba(96,165,250,0.12)";
+                const planBorder = isPriority ? "rgba(245,168,0,0.35)"  : "rgba(96,165,250,0.35)";
+                return (
+                  <div className="rounded-2xl p-4 relative overflow-hidden"
+                    style={{ background: `linear-gradient(135deg, ${planBg} 0%, transparent 100%)`, border: `1px solid ${planBorder}` }}>
+                    <div className="absolute -right-4 -top-4 opacity-10 pointer-events-none">
+                      {isPriority ? <Crown size={64} style={{ color: planColor }} /> : <Star size={64} style={{ color: planColor }} />}
                     </div>
-                    <div className="space-y-1.5 mt-3">
-                      <div className="flex items-center gap-2 text-sm" style={{ color: C.muted }}>
-                        <Coffee size={13} style={{ color: membership.planId === "priority" ? "#f5a800" : "#60a5fa" }} />
-                        <span>
-                          <strong style={{ color: C.text }}>{membership.cupsPerWindow} cups</strong>
-                          {" "}every <strong style={{ color: C.text }}>{membership.windowHours} hour{membership.windowHours > 1 ? "s" : ""}</strong>
-                          {" "}(coffee, tea, or mix)
+                    <div className="relative">
+                      {/* Header row */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          {isPriority ? <Crown size={15} style={{ color: planColor }} /> : <Star size={15} style={{ color: planColor }} />}
+                          <p className="font-black text-sm" style={{ color: C.text }}>{membership.planName}</p>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold"
+                          style={{ background: planBg, color: planColor, border: `1px solid ${planBorder}` }}>
+                          Active ✓
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 text-sm" style={{ color: C.muted }}>
-                        <CalendarDays size={13} style={{ color: C.faint }} />
-                        <span>
-                          Valid until <strong style={{ color: C.text }}>{fmtDate(membership.endDate)}</strong>
-                        </span>
+
+                      {/* Cup status */}
+                      <div className="rounded-xl p-3 mb-3"
+                        style={{ background: cupsRemaining > 0 ? "rgba(52,211,153,0.08)" : "rgba(248,113,113,0.08)",
+                                 border: `1px solid ${cupsRemaining > 0 ? "rgba(52,211,153,0.25)" : "rgba(248,113,113,0.25)"}` }}>
+                        {cupsRemaining > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <Coffee size={15} style={{ color: "#34d399" }} />
+                            <div>
+                              <p className="text-sm font-black" style={{ color: "#34d399" }}>
+                                {cupsRemaining} free cup{cupsRemaining !== 1 ? "s" : ""} available
+                              </p>
+                              <p className="text-xs" style={{ color: C.muted }}>
+                                {cupsInWindow} of {membership.cupsPerWindow} used this {membership.windowHours}h window
+                              </p>
+                            </div>
+                          </div>
+                        ) : secsToNext > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <Clock size={15} style={{ color: "#f87171" }} />
+                            <div>
+                              <p className="text-xs" style={{ color: C.muted }}>Next free cup in</p>
+                              <p className="text-base font-black tabular-nums" style={{ color: "#f87171" }}>
+                                {fmtCountdown(secsToNext)}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Coffee size={15} style={{ color: "#34d399" }} />
+                            <p className="text-sm font-black" style={{ color: "#34d399" }}>
+                              Window reset — {membership.cupsPerWindow} free cups ready!
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Cup usage progress bar */}
+                      <div className="mb-3">
+                        <div className="flex justify-between text-xs mb-1" style={{ color: C.faint }}>
+                          <span>Cups used this window</span>
+                          <span>{cupsInWindow} / {membership.cupsPerWindow}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                          <div className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(100, (cupsInWindow / membership.cupsPerWindow) * 100)}%`,
+                                     background: cupsRemaining > 0 ? planColor : "#f87171" }} />
+                        </div>
+                      </div>
+
+                      {/* Plan rule + expiry */}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs" style={{ color: C.muted }}>
+                          <Coffee size={11} style={{ color: C.faint }} />
+                          <span>{membership.cupsPerWindow} cups every {membership.windowHours}h (coffee, tea, or mix)</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs" style={{ color: C.muted }}>
+                          <CalendarDays size={11} style={{ color: C.faint }} />
+                          <span>Valid until <strong style={{ color: C.text }}>{fmtDate(membership.endDate)}</strong></span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Wallet quick link */}
               <button
@@ -885,6 +1007,60 @@ export function CustomerDashboard({
             </div>
           )}
 
+          {/* Membership status banner */}
+          {membership && (
+            <div className="mx-4 mt-3 px-4 py-3 rounded-2xl flex items-center justify-between gap-3"
+              style={{
+                background: cupsRemaining > 0 ? "rgba(52,211,153,0.08)" : "rgba(248,113,113,0.08)",
+                border:     cupsRemaining > 0 ? "1px solid rgba(52,211,153,0.25)" : "1px solid rgba(248,113,113,0.25)",
+              }}>
+              {cupsRemaining > 0 ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Coffee size={15} style={{ color: "#34d399" }} />
+                    <div>
+                      <p className="text-sm font-bold" style={{ color: "#34d399" }}>
+                        {cupsRemaining} free cup{cupsRemaining !== 1 ? "s" : ""} left
+                      </p>
+                      <p className="text-xs" style={{ color: C.muted }}>
+                        {membership.planName} · {membership.windowHours}h window
+                      </p>
+                    </div>
+                  </div>
+                  {/* Toggle: use discount or pay */}
+                  <button
+                    onClick={() => setUseMembershipDiscount(v => !v)}
+                    className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-all"
+                    style={useMembershipDiscount
+                      ? { background: "rgba(52,211,153,0.15)", color: "#34d399", border: "1px solid rgba(52,211,153,0.4)" }
+                      : { background: "rgba(255,255,255,0.04)", color: C.muted, border: `1px solid ${C.border}` }}>
+                    {useMembershipDiscount ? "✓ Using discount" : "Paying full price"}
+                  </button>
+                </>
+              ) : secsToNext > 0 ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Clock size={15} style={{ color: "#f87171" }} />
+                    <div>
+                      <p className="text-xs" style={{ color: C.muted }}>No free cups remaining · next in</p>
+                      <p className="text-sm font-black tabular-nums" style={{ color: "#f87171" }}>
+                        {fmtCountdown(secsToNext)}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs" style={{ color: C.faint }}>{membership.planName}</span>
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Coffee size={15} style={{ color: "#34d399" }} />
+                  <p className="text-sm font-bold" style={{ color: "#34d399" }}>
+                    Window reset — {membership.cupsPerWindow} free cups ready!
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Category filter */}
           {!menuLoading && (
             <div className="px-4 pt-3 pb-1">
@@ -984,14 +1160,26 @@ export function CustomerDashboard({
             </div>
           )}
 
-          {/* Items */}
-          <div className="flex-1 p-4 space-y-3 pb-40 overflow-y-auto">
-            {cart.map(item => (
-              <div key={item.menuItemId} className="flex items-center gap-3 rounded-2xl p-3" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+          {/* Items — use annotated cart to show free/paid badge */}
+          <div className="flex-1 p-4 space-y-3 pb-48 overflow-y-auto">
+            {cartAnnotated.map(item => (
+              <div key={item.menuItemId} className="flex items-center gap-3 rounded-2xl p-3"
+                style={{ background: item.freeQty === item.qty ? "rgba(52,211,153,0.07)" : C.surface,
+                         border: `1px solid ${item.freeQty > 0 ? "rgba(52,211,153,0.25)" : C.border}` }}>
                 <span className="text-2xl">{item.emoji}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate" style={{ color: C.text }}>{item.name}</p>
-                  <p className="text-xs" style={{ color: C.gold }}>{fmt(item.price * item.qty)}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {item.freeQty > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ background: "rgba(52,211,153,0.15)", color: "#34d399", border: "1px solid rgba(52,211,153,0.3)" }}>
+                        {item.freeQty === item.qty ? "FREE" : `${item.freeQty} FREE`}
+                      </span>
+                    )}
+                    {item.freeQty === item.qty
+                      ? <span className="text-xs line-through" style={{ color: C.faint }}>{fmt(item.price * item.qty)}</span>
+                      : <span className="text-xs" style={{ color: C.gold }}>{fmt(item.paidQty * item.price)}</span>}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button onClick={() => changeQty(item.menuItemId, -1)} className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: C.elevated }}>
@@ -1012,20 +1200,42 @@ export function CustomerDashboard({
 
           {/* Place order bar */}
           <div className="fixed bottom-0 left-0 right-0 p-4 backdrop-blur-md" style={{ background: `${C.bg}f0`, borderTop: `1px solid ${C.border}` }}>
+            {/* Discount summary */}
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-xs mb-2 px-1">
+                <span style={{ color: "#34d399" }}>
+                  🎁 {freeUnitsApplied} cup{freeUnitsApplied !== 1 ? "s" : ""} free (membership)
+                </span>
+                <span style={{ color: "#34d399" }}>−{fmt(discountAmount)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center mb-3">
               <span className="text-sm" style={{ color: C.muted }}>{cartCount} item{cartCount !== 1 ? "s" : ""}</span>
-              <span className="text-xl font-black" style={{ color: C.gold }}>{fmt(cartTotal)}</span>
+              <div className="text-right">
+                {discountAmount > 0 && (
+                  <span className="text-xs line-through mr-2" style={{ color: C.faint }}>{fmt(cartGross)}</span>
+                )}
+                <span className="text-xl font-black" style={{ color: cartTotal === 0 ? "#34d399" : C.gold }}>
+                  {cartTotal === 0 ? "FREE" : fmt(cartTotal)}
+                </span>
+              </div>
             </div>
             <button
               onClick={placeOrder}
               disabled={placing || !tableNumber}
               className="w-full font-bold py-4 rounded-2xl text-base transition-all active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2"
-              style={{ background: C.gold, color: C.bg }}
-              onMouseEnter={e => !placing && tableNumber && ((e.currentTarget as HTMLButtonElement).style.background = C.goldDark)}
-              onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = C.gold)}
+              style={{ background: cartTotal === 0 ? "#34d399" : C.gold, color: C.bg }}
+              onMouseEnter={e => !placing && tableNumber && ((e.currentTarget as HTMLButtonElement).style.background = cartTotal === 0 ? "#10b981" : C.goldDark)}
+              onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = cartTotal === 0 ? "#34d399" : C.gold)}
             >
               {placing && <Loader2 size={18} className="animate-spin" />}
-              {!tableNumber ? "Set table number first" : "Place Order"}
+              {!tableNumber
+                ? "Set table number first"
+                : cartTotal === 0
+                  ? "Place Free Order ☕"
+                  : freeUnitsApplied > 0
+                    ? `Place Order · ${fmt(cartTotal)}`
+                    : "Place Order"}
             </button>
           </div>
         </div>
