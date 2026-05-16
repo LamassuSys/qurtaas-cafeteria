@@ -186,9 +186,9 @@ export function CustomerDashboard({
   const [membership, setMembership] = useState<CustomerMembership | null>(null);
 
   // Cup-usage tracking (for membership free-cup logic)
-  const [cupUsageTimes,        setCupUsageTimes]        = useState<Date[]>([]);
-  const [useMembershipDiscount,setUseMembershipDiscount] = useState(true);
-  const [tickNow,              setTickNow]              = useState(Date.now());
+  const [cupUsageTimes, setCupUsageTimes] = useState<Date[]>([]);
+  const [payFullPrice,  setPayFullPrice]  = useState(false);   // opt-out inside cart only
+  const [tickNow,       setTickNow]       = useState(Date.now());
 
   // Wallet state
   const [walletTxs,     setWalletTxs]     = useState<WalletTx[]>([]);
@@ -467,8 +467,8 @@ export function CustomerDashboard({
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
-  // Membership discount applied to cart (first N units free)
-  const freeUnitsAvail = (membership && useMembershipDiscount) ? cupsRemaining : 0;
+  // Membership discount applied to cart (first N units free — always on unless customer opts out)
+  const freeUnitsAvail = (membership && !payFullPrice) ? cupsRemaining : 0;
   let   _freeLeft      = freeUnitsAvail;
   let   discountAmount = 0;
   const cartAnnotated  = cart.map(item => {
@@ -530,7 +530,7 @@ export function CustomerDashboard({
       }
 
       setOrderedId(order.id);
-      setCart([]); setOrderNotes(""); setShowCart(false);
+      setCart([]); setOrderNotes(""); setShowCart(false); setPayFullPrice(false);
       setTab("account");
 
       const msg = freeUnitsApplied > 0
@@ -1114,51 +1114,39 @@ export function CustomerDashboard({
 
           {/* Membership status banner */}
           {membership && (
-            <div className="mx-4 mt-3 px-4 py-3 rounded-2xl flex items-center justify-between gap-3"
+            <div className="mx-4 mt-3 px-4 py-3 rounded-2xl"
               style={{
                 background: cupsRemaining > 0 ? "rgba(52,211,153,0.08)" : "rgba(248,113,113,0.08)",
                 border:     cupsRemaining > 0 ? "1px solid rgba(52,211,153,0.25)" : "1px solid rgba(248,113,113,0.25)",
               }}>
               {cupsRemaining > 0 ? (
-                <>
-                  <div className="flex items-center gap-2">
-                    <Coffee size={15} style={{ color: "#34d399" }} />
-                    <div>
-                      <p className="text-sm font-bold" style={{ color: "#34d399" }}>
-                        {cupsRemaining} free cup{cupsRemaining !== 1 ? "s" : ""} left
-                      </p>
-                      <p className="text-xs" style={{ color: C.muted }}>
-                        {membership.planName} · {membership.windowHours}h window
-                      </p>
-                    </div>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl shrink-0">🎁</span>
+                  <div>
+                    <p className="text-sm font-black" style={{ color: "#34d399" }}>
+                      Add up to {cupsRemaining} item{cupsRemaining !== 1 ? "s" : ""} — all FREE!
+                    </p>
+                    <p className="text-xs" style={{ color: C.muted }}>
+                      {membership.planName} · discount applied automatically at checkout
+                    </p>
                   </div>
-                  {/* Toggle: use discount or pay */}
-                  <button
-                    onClick={() => setUseMembershipDiscount(v => !v)}
-                    className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-all"
-                    style={useMembershipDiscount
-                      ? { background: "rgba(52,211,153,0.15)", color: "#34d399", border: "1px solid rgba(52,211,153,0.4)" }
-                      : { background: "rgba(255,255,255,0.04)", color: C.muted, border: `1px solid ${C.border}` }}>
-                    {useMembershipDiscount ? "✓ Using discount" : "Paying full price"}
-                  </button>
-                </>
+                </div>
               ) : secsToNext > 0 ? (
-                <>
-                  <div className="flex items-center gap-2">
-                    <Clock size={15} style={{ color: "#f87171" }} />
-                    <div>
-                      <p className="text-xs" style={{ color: C.muted }}>No free cups remaining · next in</p>
-                      <p className="text-sm font-black tabular-nums" style={{ color: "#f87171" }}>
-                        {fmtCountdown(secsToNext)}
-                      </p>
-                    </div>
+                <div className="flex items-center gap-2.5">
+                  <Clock size={16} className="shrink-0" style={{ color: "#f87171" }} />
+                  <div>
+                    <p className="text-xs" style={{ color: C.muted }}>
+                      No free cups left this window ({membership.planName}) · next free cup in
+                    </p>
+                    <p className="text-base font-black tabular-nums" style={{ color: "#f87171" }}>
+                      {fmtCountdown(secsToNext)}
+                    </p>
                   </div>
-                  <span className="text-xs" style={{ color: C.faint }}>{membership.planName}</span>
-                </>
+                </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <Coffee size={15} style={{ color: "#34d399" }} />
-                  <p className="text-sm font-bold" style={{ color: "#34d399" }}>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl shrink-0">☕</span>
+                  <p className="text-sm font-black" style={{ color: "#34d399" }}>
                     Window reset — {membership.cupsPerWindow} free cups ready!
                   </p>
                 </div>
@@ -1227,16 +1215,21 @@ export function CustomerDashboard({
           {/* Floating cart bar */}
           {cartCount > 0 && !showCart && (
             <div className="fixed bottom-0 left-0 right-0 z-40 p-4 backdrop-blur-md" style={{ background: `${C.bg}f0`, borderTop: `1px solid ${C.border}` }}>
+              {freeUnitsApplied > 0 && (
+                <p className="text-center text-xs mb-2 font-semibold" style={{ color: "#34d399" }}>
+                  🎁 {freeUnitsApplied} item{freeUnitsApplied !== 1 ? "s" : ""} FREE with your membership
+                </p>
+              )}
               <button
                 onClick={() => setShowCart(true)}
                 className="w-full font-bold py-4 rounded-2xl flex items-center justify-between px-5 transition-all active:scale-[0.99]"
-                style={{ background: C.gold, color: C.bg }}
-                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = C.goldDark)}
-                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = C.gold)}
+                style={{ background: cartTotal === 0 ? "#34d399" : C.gold, color: C.bg }}
+                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = cartTotal === 0 ? "#10b981" : C.goldDark)}
+                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = cartTotal === 0 ? "#34d399" : C.gold)}
               >
                 <span className="w-6 h-6 rounded-full text-xs flex items-center justify-center font-black" style={{ background: "rgba(0,0,0,0.2)" }}>{cartCount}</span>
                 <span>View Order</span>
-                <span className="font-black">{fmt(cartTotal)}</span>
+                <span className="font-black">{cartTotal === 0 ? "FREE ☕" : fmt(cartTotal)}</span>
               </button>
             </div>
           )}
@@ -1305,13 +1298,27 @@ export function CustomerDashboard({
 
           {/* Place order bar */}
           <div className="fixed bottom-0 left-0 right-0 p-4 backdrop-blur-md" style={{ background: `${C.bg}f0`, borderTop: `1px solid ${C.border}` }}>
-            {/* Discount summary */}
-            {discountAmount > 0 && (
-              <div className="flex justify-between text-xs mb-2 px-1">
-                <span style={{ color: "#34d399" }}>
-                  🎁 {freeUnitsApplied} cup{freeUnitsApplied !== 1 ? "s" : ""} free (membership)
-                </span>
-                <span style={{ color: "#34d399" }}>−{fmt(discountAmount)}</span>
+            {/* Discount summary + opt-out */}
+            {membership && cupsRemaining > 0 && (
+              <div className="mb-2 space-y-1.5">
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-xs px-1">
+                    <span style={{ color: "#34d399" }}>
+                      🎁 {freeUnitsApplied} item{freeUnitsApplied !== 1 ? "s" : ""} FREE (membership)
+                    </span>
+                    <span style={{ color: "#34d399" }}>−{fmt(discountAmount)}</span>
+                  </div>
+                )}
+                {/* Intentional opt-out — buried here so it's never accidental */}
+                <button
+                  onClick={() => setPayFullPrice(v => !v)}
+                  className="w-full flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-xl transition-all"
+                  style={payFullPrice
+                    ? { background: "rgba(248,113,113,0.12)", color: "#f87171", border: "1px solid rgba(248,113,113,0.3)" }
+                    : { background: "transparent", color: C.faint, border: `1px solid transparent` }}
+                >
+                  {payFullPrice ? "✗ Paying full price — tap to use membership discount" : "Pay full price instead (skip discount)"}
+                </button>
               </div>
             )}
             <div className="flex justify-between items-center mb-3">
