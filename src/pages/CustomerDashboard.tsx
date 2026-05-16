@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useOrders, type Order, type OrderItem } from "@/data/ordersStore";
 import { useMenu } from "@/data/menuStore";
@@ -6,7 +6,8 @@ import {
   ArrowLeft, Home, Star, TrendingUp, ShoppingBag,
   Clock, ChefHat, Bell, CheckCircle, XCircle,
   Trophy, Zap, History, RefreshCw,
-  UtensilsCrossed, Plus, Minus, ShoppingCart, Loader2, Hash,
+  UtensilsCrossed, Plus, Minus, Loader2, Hash,
+  Wallet, Gift, ArrowDownCircle, ArrowUpCircle, AlertTriangle, X,
 } from "lucide-react";
 
 // ── Brand tokens ───────────────────────────────────────────────
@@ -76,11 +77,23 @@ const STATUS_STEPS = ["pending", "preparing", "ready", "completed"] as const;
 
 // ── Customer profile type ──────────────────────────────────────
 interface CustomerProfile {
-  name: string;
-  phone: string;
-  tier: string;
-  points: number;
-  totalSpent: number;
+  name:          string;
+  phone:         string;
+  tier:          string;
+  points:        number;
+  totalSpent:    number;
+  walletBalance: number;
+}
+
+// ── Wallet transaction type ────────────────────────────────────
+interface WalletTx {
+  id:          string;
+  amount:      number;
+  type:        "credit" | "debit";
+  source:      string;
+  referenceId: string | null;
+  note:        string | null;
+  createdAt:   string;
 }
 
 // ── Notification toast type ────────────────────────────────────
@@ -108,12 +121,21 @@ export function CustomerDashboard({
   const { orders, createOrder } = useOrders();
   const { items, categories, loading: menuLoading } = useMenu();
 
-  const [tab, setTab]               = useState<"account" | "menu">("account");
+  const [tab, setTab]               = useState<"account" | "menu" | "wallet">("account");
   const [profile, setProfile]       = useState<CustomerProfile | null>(null);
   const [loading, setLoading]       = useState(true);
   const [toasts, setToasts]         = useState<Toast[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const prevStatusRef               = useRef<Record<string, string>>({});
+
+  // Wallet state
+  const [walletTxs,     setWalletTxs]     = useState<WalletTx[]>([]);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [redeemOpen,    setRedeemOpen]    = useState(false);
+  const [redeemCode,    setRedeemCode]    = useState("");
+  const [redeemLoading, setRedeemLoading] = useState(false);
+  const [redeemError,   setRedeemError]   = useState("");
+  const [redeemSuccess, setRedeemSuccess] = useState("");
 
   // ── Menu / ordering state ──────────────────────────────────
   const [tableNumber, setTableNumber] = useState<number | undefined>(initialTableNumber);
@@ -135,21 +157,112 @@ export function CustomerDashboard({
     try {
       const { data } = await supabase
         .from("customers")
-        .select("name, phone, membership_tier, points, total_spent")
+        .select("name, phone, membership_tier, points, total_spent, wallet_balance")
         .eq("id", customerId)
         .single();
       if (data) {
         const r = data as Record<string, unknown>;
         setProfile({
-          name:       r.name            as string,
-          phone:      r.phone           as string,
-          tier:       r.membership_tier as string,
-          points:     Number(r.points),
-          totalSpent: Number(r.total_spent),
+          name:          r.name            as string,
+          phone:         r.phone           as string,
+          tier:          r.membership_tier as string,
+          points:        Number(r.points),
+          totalSpent:    Number(r.total_spent),
+          walletBalance: Number(r.wallet_balance ?? 0),
         });
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Fetch wallet transactions ──────────────────────────────
+  const fetchWalletTxs = useCallback(async () => {
+    setWalletLoading(true);
+    try {
+      const { data } = await supabase
+        .from("wallet_transactions")
+        .select("*")
+        .eq("customer_id", customerId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (data) {
+        setWalletTxs(data.map((r: Record<string, unknown>) => ({
+          id:          r.id           as string,
+          amount:      Number(r.amount),
+          type:        r.type         as "credit" | "debit",
+          source:      r.source       as string,
+          referenceId: r.reference_id as string | null,
+          note:        r.note         as string | null,
+          createdAt:   r.created_at   as string,
+        })));
+      }
+    } finally {
+      setWalletLoading(false);
+    }
+  }, [customerId]);
+
+  // ── Redeem gift card ───────────────────────────────────────
+  const handleRedeem = async () => {
+    const code = redeemCode.trim().toUpperCase();
+    if (!code) { setRedeemError("Enter a gift card code"); return; }
+    setRedeemLoading(true); setRedeemError(""); setRedeemSuccess("");
+    try {
+      // 1. Look up gift card
+      const { data: card, error: cardErr } = await supabase
+        .from("gift_cards")
+        .select("*")
+        .eq("code", code)
+        .single();
+
+      if (cardErr || !card) { setRedeemError("Gift card code not found."); return; }
+      const gc = card as Record<string, unknown>;
+
+      if (gc.status !== "active")  { setRedeemError("This gift card is no longer active."); return; }
+      if (Number(gc.balance) <= 0) { setRedeemError("This gift card has no remaining balance."); return; }
+      if (gc.expires_at && new Date(gc.expires_at as string) < new Date()) {
+        setRedeemError("This gift card has expired."); return;
+      }
+
+      const amount = Number(gc.balance);
+
+      // 2. Credit wallet + mark card as used (in parallel)
+      const [walletRes, cardRes] = await Promise.all([
+        supabase.rpc
+          ? supabase.from("customers").update({ wallet_balance: (profile?.walletBalance ?? 0) + amount }).eq("id", customerId)
+          : supabase.from("customers").update({ wallet_balance: (profile?.walletBalance ?? 0) + amount }).eq("id", customerId),
+        supabase.from("gift_cards").update({
+          status:      "used",
+          balance:     0,
+          redeemed_by: customerId,
+          redeemed_at: new Date().toISOString(),
+        }).eq("id", gc.id as string),
+      ]);
+
+      if (walletRes.error) { setRedeemError(walletRes.error.message); return; }
+      if (cardRes.error)   { setRedeemError(cardRes.error.message);   return; }
+
+      // 3. Log transaction
+      await supabase.from("wallet_transactions").insert({
+        customer_id:  customerId,
+        amount,
+        type:         "credit",
+        source:       "gift_card",
+        reference_id: gc.id as string,
+        note:         `Gift card ${code} redeemed`,
+        created_by:   profile?.name ?? "customer",
+      });
+
+      // 4. Update local state & show success
+      setProfile(prev => prev ? { ...prev, walletBalance: prev.walletBalance + amount } : prev);
+      fetchWalletTxs();
+      setRedeemCode("");
+      setRedeemSuccess(`✅ ${fmt(amount)} added to your wallet!`);
+      setTimeout(() => { setRedeemOpen(false); setRedeemSuccess(""); }, 2500);
+    } catch (ex) {
+      setRedeemError((ex as Error).message);
+    } finally {
+      setRedeemLoading(false);
     }
   };
 
@@ -339,13 +452,17 @@ export function CustomerDashboard({
       {/* ── Tab bar ─────────────────────────────────────── */}
       <div className="flex border-b" style={{ borderColor: C.border, background: C.surface }}>
         {([
-          { id: "account",  label: "My Account",  icon: <Trophy size={14} /> },
-          { id: "menu",     label: "Menu & Order", icon: <UtensilsCrossed size={14} /> },
+          { id: "account", label: "Account",  icon: <Trophy size={14} /> },
+          { id: "wallet",  label: "Wallet",   icon: <Wallet size={14} /> },
+          { id: "menu",    label: "Order",     icon: <UtensilsCrossed size={14} /> },
         ] as const).map(t => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id)}
-            className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors"
+            onClick={() => {
+              setTab(t.id);
+              if (t.id === "wallet") fetchWalletTxs();
+            }}
+            className="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-semibold transition-colors"
             style={tab === t.id
               ? { color: C.gold, borderBottom: `2px solid ${C.gold}` }
               : { color: C.muted, borderBottom: "2px solid transparent" }}
@@ -376,6 +493,23 @@ export function CustomerDashboard({
                 <StatCard icon={<Zap size={16} />}         label="Points Earned" value={`${(profile?.points ?? 0).toLocaleString()} pts`} sub={`≈ ${fmt(pointsValue)} redeemable`} color="#a78bfa" />
                 <StatCard icon={<Star size={16} />}        label="Avg Order"     value={avgOrderValue ? fmt(avgOrderValue) : "—"}           color="#34d399" />
               </div>
+
+              {/* Wallet quick link */}
+              <button
+                onClick={() => { setTab("wallet"); fetchWalletTxs(); }}
+                className="w-full flex items-center gap-3 rounded-2xl p-4 transition-all active:scale-[0.98] text-left"
+                style={{ background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.25)" }}
+                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(52,211,153,0.5)")}
+                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(52,211,153,0.25)")}
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(52,211,153,0.12)" }}>
+                  <Wallet size={20} style={{ color: "#34d399" }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm" style={{ color: "#34d399" }}>My Wallet</p>
+                  <p className="text-xs" style={{ color: C.muted }}>Balance: <strong style={{ color: C.text }}>{fmt(profile?.walletBalance ?? 0)}</strong> — redeem gift cards</p>
+                </div>
+              </button>
 
               {/* Quick link to menu */}
               <button
@@ -427,6 +561,177 @@ export function CustomerDashboard({
               <TierBenefitsCard currentTier={profile?.tier ?? "bronze"} />
             </>
           )}
+        </div>
+      )}
+
+      {/* ── WALLET TAB ──────────────────────────────────────── */}
+      {tab === "wallet" && (
+        <div className="px-4 py-5 max-w-lg mx-auto space-y-5 pb-20">
+
+          {/* Balance card */}
+          <div className="rounded-3xl p-6 relative overflow-hidden"
+            style={{ background: "linear-gradient(135deg, rgba(52,211,153,0.15) 0%, rgba(16,185,129,0.08) 100%)", border: "1px solid rgba(52,211,153,0.3)" }}>
+            <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full pointer-events-none"
+              style={{ background: "radial-gradient(circle, rgba(52,211,153,0.15) 0%, transparent 70%)" }} />
+            <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "#34d399" }}>
+              <Wallet size={11} className="inline mr-1 -mt-0.5" />Wallet Balance
+            </p>
+            <p className="text-4xl font-black mb-1" style={{ color: C.text }}>
+              {fmt(profile?.walletBalance ?? 0)}
+            </p>
+            <p className="text-xs" style={{ color: C.muted }}>Use your balance to pay for orders at the counter</p>
+
+            <button
+              onClick={() => { setRedeemOpen(true); setRedeemCode(""); setRedeemError(""); setRedeemSuccess(""); }}
+              className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all active:scale-[0.97]"
+              style={{ background: "#34d399", color: C.bg }}
+              onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = "#10b981")}
+              onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = "#34d399")}
+            >
+              <Gift size={15} /> Redeem Gift Card
+            </button>
+          </div>
+
+          {/* How it works */}
+          <div className="rounded-2xl p-4 space-y-3" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>How it works</p>
+            {[
+              { icon: "🎁", text: "Receive a gift card code from Qurtaas or as a gift" },
+              { icon: "✏️", text: "Tap Redeem Gift Card and enter the code" },
+              { icon: "💳", text: "The card's full value is instantly added to your wallet" },
+              { icon: "☕", text: "Tell the cashier to use your wallet balance when you order" },
+            ].map(s => (
+              <div key={s.text} className="flex items-center gap-3 text-sm" style={{ color: C.text }}>
+                <span className="text-lg shrink-0">{s.icon}</span>
+                <span style={{ color: C.muted }}>{s.text}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Transaction history */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: C.muted }}>
+              Transaction History
+            </p>
+
+            {walletLoading ? (
+              <div className="flex justify-center py-8">
+                <RefreshCw size={20} className="animate-spin" style={{ color: C.muted }} />
+              </div>
+            ) : walletTxs.length === 0 ? (
+              <div className="py-10 text-center rounded-2xl" style={{ border: `1px dashed ${C.faint}` }}>
+                <Wallet size={28} className="mx-auto mb-3 opacity-25" style={{ color: "#34d399" }} />
+                <p className="text-sm" style={{ color: C.muted }}>No transactions yet</p>
+                <p className="text-xs mt-1" style={{ color: C.faint }}>Redeem a gift card to get started</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {walletTxs.map(tx => {
+                  const isCredit = tx.type === "credit";
+                  const sourceLabel: Record<string, string> = {
+                    gift_card:     "Gift Card",
+                    order_payment: "Order Payment",
+                    manual:        "Manual Adjustment",
+                    refund:        "Refund",
+                  };
+                  return (
+                    <div key={tx.id} className="flex items-center gap-3 rounded-2xl px-4 py-3"
+                      style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: isCredit ? "rgba(52,211,153,0.12)" : "rgba(248,113,113,0.12)" }}>
+                        {isCredit
+                          ? <ArrowDownCircle size={18} style={{ color: "#34d399" }} />
+                          : <ArrowUpCircle   size={18} style={{ color: "#f87171" }} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold" style={{ color: C.text }}>
+                          {sourceLabel[tx.source] ?? tx.source}
+                        </p>
+                        <p className="text-xs truncate" style={{ color: C.muted }}>
+                          {tx.note ?? "—"} · {fmtDate(tx.createdAt)}
+                        </p>
+                      </div>
+                      <p className="text-sm font-black shrink-0"
+                        style={{ color: isCredit ? "#34d399" : "#f87171" }}>
+                        {isCredit ? "+" : "−"}{fmt(Math.abs(tx.amount))}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── REDEEM MODAL ─────────────────────────────────────── */}
+      {redeemOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
+            style={{ background: C.elevated, border: `1px solid ${C.border}` }}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4"
+              style={{ borderBottom: `1px solid ${C.border}` }}>
+              <div className="flex items-center gap-2">
+                <Gift size={16} style={{ color: "#34d399" }} />
+                <span className="font-bold" style={{ color: C.text }}>Redeem Gift Card</span>
+              </div>
+              <button onClick={() => setRedeemOpen(false)} style={{ color: C.muted }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-5 space-y-4">
+              {redeemSuccess ? (
+                <div className="text-center py-6">
+                  <div className="text-5xl mb-3">🎉</div>
+                  <p className="text-lg font-black" style={{ color: "#34d399" }}>{redeemSuccess}</p>
+                  <p className="text-sm mt-1" style={{ color: C.muted }}>Your wallet has been updated</p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-xs font-semibold" style={{ color: C.muted }}>Gift Card Code</label>
+                    <input
+                      type="text"
+                      value={redeemCode}
+                      onChange={e => setRedeemCode(e.target.value.toUpperCase())}
+                      placeholder="INK-XXXX-XXXX-XXXX"
+                      className="w-full mt-1.5 px-4 py-3 rounded-2xl text-center font-mono text-base font-bold tracking-widest focus:outline-none"
+                      style={{ background: C.surface, border: `1px solid ${redeemError ? "rgba(239,68,68,0.5)" : C.border}`, color: C.text }}
+                      onKeyDown={e => { if (e.key === "Enter") handleRedeem(); }}
+                    />
+                  </div>
+
+                  {redeemError && (
+                    <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+                      style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                      <AlertTriangle size={13} className="text-red-400 shrink-0" />
+                      <p className="text-xs text-red-300">{redeemError}</p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleRedeem}
+                    disabled={redeemLoading || !redeemCode.trim()}
+                    className="w-full py-3.5 rounded-2xl font-bold text-base flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
+                    style={{ background: "#34d399", color: C.bg }}
+                    onMouseEnter={e => !redeemLoading && ((e.currentTarget as HTMLButtonElement).style.background = "#10b981")}
+                    onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = "#34d399")}
+                  >
+                    {redeemLoading
+                      ? <><Loader2 size={16} className="animate-spin" /> Checking…</>
+                      : <><Gift size={16} /> Add to Wallet</>}
+                  </button>
+
+                  <p className="text-xs text-center" style={{ color: C.faint }}>
+                    The full gift card balance will be credited instantly
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
