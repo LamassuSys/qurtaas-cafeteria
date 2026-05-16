@@ -23,6 +23,8 @@ const T = {
     nav_inventory:   "Inventory",
     nav_users:       "Users",
     nav_customers:   "Customers",
+    nav_gift_cards:  "Gift Cards",
+    nav_memberships: "Memberships",
     nav_menu:        "Menu Manager",
     // Auth
     sign_in:         "Sign In",
@@ -141,6 +143,8 @@ const T = {
     nav_inventory:   "المخزون",
     nav_users:       "المستخدمون",
     nav_customers:   "العملاء",
+    nav_gift_cards:  "بطاقات الهدايا",
+    nav_memberships: "الاشتراكات",
     nav_menu:        "إدارة القائمة",
     // Auth
     sign_in:         "تسجيل الدخول",

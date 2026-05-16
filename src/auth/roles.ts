@@ -9,7 +9,7 @@ export type Role =
 export type PageId =
   | "dashboard" | "sales" | "reports" | "analytics"
   | "predictions" | "drawbacks" | "marketing" | "inventory"
-  | "users" | "customers" | "menu" | "pos" | "orders" | "barista_kds";
+  | "users" | "customers" | "gift_cards" | "memberships" | "menu" | "pos" | "orders" | "barista_kds";
 
 export interface RoleConfig {
   label: string;
@@ -28,7 +28,7 @@ export const ROLE_CONFIG: Record<Role, RoleConfig> = {
     label: "Super Admin",
     color: "text-red-400",
     bg: "bg-red-500/20 border-red-500/30",
-    pages: ["dashboard","pos","orders","sales","reports","analytics","predictions","drawbacks","marketing","inventory","users","customers","menu","barista_kds"],
+    pages: ["dashboard","pos","orders","sales","reports","analytics","predictions","drawbacks","marketing","inventory","users","customers","gift_cards","memberships","menu","barista_kds"],
     canManageUsers: true,
     canManageCustomers: true,
     canRecordSales: true,

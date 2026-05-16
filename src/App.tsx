@@ -24,6 +24,8 @@ import { POSCashier } from "@/pages/POSCashier";
 import { Orders } from "@/pages/Orders";
 import { BaristaKDS } from "@/pages/BaristaKDS";
 import { Customers } from "@/pages/Customers";
+import { GiftCards } from "@/pages/GiftCards";
+import { Memberships } from "@/pages/Memberships";
 import { OrdersProvider } from "@/data/ordersStore";
 import { InventoryProvider } from "@/data/inventoryStore";
 import { I18nProvider, useI18n } from "@/data/i18nStore";
@@ -43,6 +45,8 @@ const PAGE_MAP: Record<Page, React.ReactNode> = {
   orders:      <Orders />,
   barista_kds: <BaristaKDS />,
   customers:   <Customers />,
+  gift_cards:  <GiftCards />,
+  memberships: <Memberships />,
 };
 
 function AppInner({ onBackToHome }: { onBackToHome?: () => void }) {
