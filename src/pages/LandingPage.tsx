@@ -1,502 +1,790 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useI18n } from "@/data/i18nStore";
-import { BookOpen, Coffee, Sandwich, Moon, ChevronDown, ArrowRight, UserCircle2 } from "lucide-react";
+import {
+  ArrowRight, UserCircle2, Menu, X, ChevronDown,
+  BookOpen, Wifi, Zap, Clock, MapPin, Phone,
+  Coffee, Star, Gift, Truck,
+} from "lucide-react";
 
-// ── Brand palette (matches Ink & Drink logo) ──────────────────
-// Navy blue:  #0b1f4a  /  #1a3a6e  /  #2354a4
-// Gold:       #f5a800  /  #e09600
-// Background: #07111f  (very dark navy)
+// ── Brand palette ──────────────────────────────────────────────
+const B = {
+  navy:        "#07111f",
+  navyMid:     "#0d1e3c",
+  navyLight:   "#112447",
+  gold:        "#f5a800",
+  goldDark:    "#d98f00",
+  goldLight:   "#ffc333",
+  cream:       "#faf7f2",
+  creamDark:   "#f0ebe0",
+  brown:       "#3d2b1f",
+  text:        "#1a1a2e",
+  muted:       "#6b7280",
+  white:       "#ffffff",
+};
 
-// ── Copy in both languages ─────────────────────────────────────
-const COPY = {
-  en: {
-    tagline:    "Your Study Sanctuary",
-    subtitle:   "Where ideas flow as freely as the coffee — a cozy corner crafted for students who demand focus and flavor.",
-    cta_order:  "Order from Your Table",
-    cta_account:"My Account",
-    cta_scroll: "Explore",
-    why_title:  "Why Ink & Drink?",
-    features: [
-      {
-        icon: BookOpen,
-        title:   "Study-Friendly Spaces",
-        body:    "Quiet, comfortable zones with high-speed Wi-Fi and ample power outlets — designed for deep work.",
-      },
-      {
-        icon: Coffee,
-        title:   "Specialty Coffee & Tea",
-        body:    "Hand-crafted espresso drinks, loose-leaf teas, fresh juices and seasonal specials made by expert baristas.",
-      },
-      {
-        icon: Sandwich,
-        title:   "Fresh Snacks & Bites",
-        body:    "Sandwiches, pastries, and light meals to keep your energy up from the first lecture to the last page.",
-      },
-      {
-        icon: Moon,
-        title:   "Extended Hours",
-        body:    "We stay open late because deadlines don't keep office hours. Study at your own pace.",
-      },
-    ],
-    table_heading: "Already here?",
-    table_sub:     "Select your table number below and start ordering directly — no waiting in line.",
-    table_more:    "More tables:",
-    table_go:      "Go",
-    table_err:     "Enter a table number between 1 and 99",
-    quote:      "\"The best ideas are born over a perfect cup of coffee.\"",
-    quote_sub:  "Come as a student. Leave as a thinker.",
-    footer_copy:"Ink & Drink by Qurtaas — Where knowledge meets comfort.",
-    staff_link: "Staff Portal",
+// ── Menu categories ────────────────────────────────────────────
+const CATEGORIES = [
+  { emoji: "☕", label: "Espresso & Coffee", sub: "Hand-crafted & hot",       bg: "linear-gradient(135deg,#2c1810,#5c3317)", accent: "#f5a800" },
+  { emoji: "🧊", label: "Cold Drinks",       sub: "Iced, blended & fresh",    bg: "linear-gradient(135deg,#0d2137,#1a4a6e)", accent: "#60c4f5" },
+  { emoji: "🥐", label: "Pastries & Bakes",  sub: "Fresh from our kitchen",   bg: "linear-gradient(135deg,#3d2b0d,#7a5a1e)", accent: "#f5c842" },
+  { emoji: "🥪", label: "Wraps & Bites",     sub: "Fuel your study session",  bg: "linear-gradient(135deg,#1a3d1a,#2e6b2e)", accent: "#7ec87e" },
+  { emoji: "🍰", label: "Sweet Treats",      sub: "Reward yourself",          bg: "linear-gradient(135deg,#3d1a2e,#7a2e5a)", accent: "#f57ec8" },
+  { emoji: "🌿", label: "Seasonal Specials", sub: "Limited & crafted fresh",  bg: "linear-gradient(135deg,#1a3d30,#2e7a5a)", accent: "#7ecfb3" },
+];
+
+// ── Order modes ────────────────────────────────────────────────
+const ORDER_MODES = [
+  {
+    icon: "🪑",
+    title: "Dine In",
+    sub: "Order from your table and we'll bring it to you.",
+    cta: "Pick Your Table",
+    action: "scroll",
   },
-  ar: {
-    tagline:    "ملاذك الدراسي المثالي",
-    subtitle:   "حيث تتدفق الأفكار بحرية كالقهوة — ركنٌ دافئ صُمِّم خصيصاً للطلاب الباحثين عن التركيز والمتعة.",
-    cta_order:  "اطلب من طاولتك",
-    cta_account:"حسابي",
-    cta_scroll: "اكتشف",
-    why_title:  "لماذا حبر ومشروب؟",
-    features: [
-      {
-        icon: BookOpen,
-        title:   "مساحات مخصصة للدراسة",
-        body:    "أركان هادئة ومريحة مع إنترنت عالي السرعة ومنافذ شحن — مصممة للعمل العميق والتركيز.",
-      },
-      {
-        icon: Coffee,
-        title:   "قهوة وشاي فاخر",
-        body:    "مشروبات إسبريسو محضَّرة بعناية، شاي من أجود الأوراق، عصائر طازجة، وإبداعات موسمية من أمهر الباريستا.",
-      },
-      {
-        icon: Sandwich,
-        title:   "وجبات خفيفة وطازجة",
-        body:    "سندويشات ومعجنات ووجبات خفيفة تُبقي طاقتك مرتفعة من أول محاضرة حتى آخر صفحة.",
-      },
-      {
-        icon: Moon,
-        title:   "ساعات عمل مطوّلة",
-        body:    "نبقى مفتوحين حتى وقت متأخر لأن المواعيد النهائية لا تلتزم بأوقات الدوام.",
-      },
-    ],
-    table_heading: "هل أنت هنا الآن؟",
-    table_sub:     "اختر رقم طاولتك وابدأ طلبك مباشرة — بدون انتظار.",
-    table_more:    "طاولة أخرى:",
-    table_go:      "انتقل",
-    table_err:     "أدخل رقم طاولة بين 1 و 99",
-    quote:      "«أفضل الأفكار تولد على كوب قهوة مثالي.»",
-    quote_sub:  "تعال طالباً. وارحل مفكراً.",
-    footer_copy:"حبر ومشروب بقلم قرطاس — حيث تلتقي المعرفة بالراحة.",
-    staff_link: "بوابة الموظفين",
+  {
+    icon: "📱",
+    title: "My Account",
+    sub: "Sign in, track loyalty points and order from anywhere.",
+    cta: "Sign In",
+    action: "account",
   },
-} as const;
+  {
+    icon: "🎓",
+    title: "Study Pass",
+    sub: "Book a quiet zone for your study session — Wi-Fi included.",
+    cta: "Learn More",
+    action: "none",
+  },
+];
 
-// ── Component ──────────────────────────────────────────────────
+// ── Atmosphere perks ───────────────────────────────────────────
+const PERKS = [
+  { icon: Wifi,     label: "Free Wi-Fi",        sub: "High-speed, no password" },
+  { icon: Zap,      label: "Power Outlets",      sub: "At every seat" },
+  { icon: BookOpen, label: "Quiet Study Zone",   sub: "Phone-free corners" },
+  { icon: Clock,    label: "Open Late",          sub: "Until midnight daily" },
+];
+
+// ── Tier quick overview ────────────────────────────────────────
+const TIERS = [
+  { emoji: "🥉", label: "Bronze", desc: "Earn 1 pt per 1,000 IQD", color: "#cd7f32" },
+  { emoji: "🥈", label: "Silver", desc: "Priority queue + perks",   color: "#a0aec0" },
+  { emoji: "🥇", label: "Gold",   desc: "Exclusive menu previews",  color: "#f5a800" },
+  { emoji: "💎", label: "Platinum",desc: "VIP events + free items", color: "#c084fc" },
+];
+
+// ══════════════════════════════════════════════════════════════
+// Main component
+// ══════════════════════════════════════════════════════════════
 export function LandingPage({ onStaffLogin }: { onStaffLogin: () => void }) {
   const { lang, setLang, isRTL } = useI18n();
-  const c = COPY[lang];
 
-  const [tableInput, setTableInput] = useState("");
-  const [tableErr,   setTableErr]   = useState(false);
+  const [scrolled,    setScrolled]    = useState(false);
+  const [mobileOpen,  setMobileOpen]  = useState(false);
+  const [tableInput,  setTableInput]  = useState("");
+  const [tableErr,    setTableErr]    = useState(false);
+
   const orderRef = useRef<HTMLElement>(null);
 
-  const scrollToOrder = () => orderRef.current?.scrollIntoView({ behavior: "smooth" });
+  // Navbar scroll effect
+  useEffect(() => {
+    const handler = () => setScrolled(window.scrollY > 60);
+    window.addEventListener("scroll", handler, { passive: true });
+    return () => window.removeEventListener("scroll", handler);
+  }, []);
 
   const goToTable = (n: number) => { window.location.href = `/table/${n}`; };
-
+  const scrollToOrder = () => orderRef.current?.scrollIntoView({ behavior: "smooth" });
   const handleManualTable = () => {
     const n = parseInt(tableInput);
     if (!n || n < 1 || n > 99) { setTableErr(true); return; }
-    setTableErr(false);
-    goToTable(n);
+    setTableErr(false); goToTable(n);
   };
+
+  const NAV_LINKS = [
+    { label: lang === "en" ? "Menu"    : "القائمة",   action: scrollToOrder },
+    { label: lang === "en" ? "Rewards" : "المكافآت",  action: () => { window.location.href = "/customer"; } },
+    { label: lang === "en" ? "About"   : "عنا",       action: () => {} },
+    { label: lang === "en" ? "Find Us" : "موقعنا",    action: () => {} },
+  ];
 
   return (
     <div
-      className="min-h-screen overflow-x-hidden"
-      style={{
-        direction: isRTL ? "rtl" : "ltr",
-        background: "#07111f",
-        color: "#e8f0ff",
-      }}
+      className="min-h-screen overflow-x-hidden font-sans"
+      style={{ direction: isRTL ? "rtl" : "ltr", background: B.cream, color: B.text }}
     >
 
-      {/* ── NAVBAR ─────────────────────────────────────────────── */}
-      <nav style={{ background: "rgba(7,17,31,0.85)", borderBottom: "1px solid rgba(26,58,110,0.35)" }}
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 py-3 backdrop-blur-md">
+      {/* ══════════════════════════════════════════════════════
+          NAVBAR
+      ══════════════════════════════════════════════════════ */}
+      <nav
+        className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
+        style={{
+          background: scrolled ? B.white : "transparent",
+          boxShadow: scrolled ? "0 1px 20px rgba(0,0,0,0.08)" : "none",
+          borderBottom: scrolled ? `1px solid ${B.creamDark}` : "none",
+        }}
+      >
+        <div className="max-w-7xl mx-auto px-5 py-3 flex items-center justify-between gap-6">
 
-        {/* Logo */}
-        <div className="flex items-center">
-          <img
-            src="/logo.png"
-            alt="Ink & Drink by Qurtaas"
-            className="h-10 w-auto object-contain"
-            onError={e => {
-              // Fallback if image not yet placed
-              (e.target as HTMLImageElement).style.display = "none";
-              (e.target as HTMLImageElement).nextElementSibling?.removeAttribute("style");
-            }}
-          />
-          {/* Fallback text logo (hidden when image loads) */}
-          <div style={{ display: "none" }} className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center"
-              style={{ background: "rgba(245,168,0,0.15)", border: "1px solid rgba(245,168,0,0.4)" }}>
-              <span style={{ color: "#f5a800" }} className="font-black text-base leading-none">I</span>
-            </div>
-            <div>
-              <div className="font-bold text-sm leading-none" style={{ color: "#e8f0ff" }}>Ink &amp; Drink</div>
-              <div className="text-[10px] leading-none mt-0.5" style={{ color: "rgba(245,168,0,0.6)" }}>by Qurtaas</div>
-            </div>
+          {/* Logo */}
+          <a href="/" className="flex items-center gap-2 shrink-0">
+            <img src="/logo.png" alt="Ink & Drink" className="h-10 w-auto"
+              onError={e => ((e.target as HTMLImageElement).style.display = "none")} />
+          </a>
+
+          {/* Center nav links — desktop */}
+          <div className="hidden md:flex items-center gap-1">
+            {NAV_LINKS.map(link => (
+              <button
+                key={link.label}
+                onClick={link.action}
+                className="px-4 py-2 rounded-full text-sm font-semibold transition-colors"
+                style={{ color: scrolled ? B.text : B.white }}
+                onMouseEnter={e => (e.currentTarget.style.background = scrolled ? B.creamDark : "rgba(255,255,255,0.15)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+              >
+                {link.label}
+              </button>
+            ))}
           </div>
+
+          {/* Right actions */}
+          <div className="hidden md:flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setLang(lang === "en" ? "ar" : "en")}
+              className="text-xs px-3 py-1.5 rounded-full transition-colors font-medium"
+              style={{ color: scrolled ? B.muted : "rgba(255,255,255,0.7)", border: `1px solid ${scrolled ? B.creamDark : "rgba(255,255,255,0.3)"}` }}
+            >
+              {lang === "en" ? "عربي" : "EN"}
+            </button>
+            <button
+              onClick={() => { window.location.href = "/customer"; }}
+              className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-full transition-all"
+              style={{ color: scrolled ? B.text : B.white, border: `1.5px solid ${scrolled ? B.text : B.white}` }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = scrolled ? B.text : B.white;
+                e.currentTarget.style.color = scrolled ? B.white : B.text;
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color = scrolled ? B.text : B.white;
+              }}
+            >
+              <UserCircle2 size={15} />
+              {lang === "en" ? "My Account" : "حسابي"}
+            </button>
+            <button
+              onClick={scrollToOrder}
+              className="flex items-center gap-2 text-sm font-bold px-5 py-2 rounded-full transition-all"
+              style={{ background: B.gold, color: B.navy }}
+              onMouseEnter={e => (e.currentTarget.style.background = B.goldDark)}
+              onMouseLeave={e => (e.currentTarget.style.background = B.gold)}
+            >
+              {lang === "en" ? "Order Now" : "اطلب الآن"}
+            </button>
+            <button
+              onClick={onStaffLogin}
+              className="text-xs px-3 py-1.5 transition-colors"
+              style={{ color: scrolled ? "#c0c0c0" : "rgba(255,255,255,0.35)" }}
+              onMouseEnter={e => (e.currentTarget.style.color = scrolled ? B.muted : "rgba(255,255,255,0.7)")}
+              onMouseLeave={e => (e.currentTarget.style.color = scrolled ? "#c0c0c0" : "rgba(255,255,255,0.35)")}
+            >
+              Staff
+            </button>
+          </div>
+
+          {/* Mobile hamburger */}
+          <button
+            className="md:hidden p-2 rounded-lg"
+            style={{ color: scrolled ? B.text : B.white }}
+            onClick={() => setMobileOpen(o => !o)}
+          >
+            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
         </div>
 
-        {/* Nav actions */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setLang(lang === "en" ? "ar" : "en")}
-            className="text-xs px-2.5 py-1.5 rounded-lg transition-all"
-            style={{ color: "#6b83a8", border: "1px solid rgba(26,58,110,0.5)" }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.color = "#f5a800";
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(245,168,0,0.4)";
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.color = "#6b83a8";
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(26,58,110,0.5)";
-            }}
-          >
-            {lang === "en" ? "العربية" : "English"}
-          </button>
-          {/* Customer account button */}
-          <button
-            onClick={() => { window.location.href = "/customer"; }}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
-            style={{ background: "rgba(245,168,0,0.12)", color: "#f5a800", border: "1px solid rgba(245,168,0,0.3)" }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = "#f5a800";
-              (e.currentTarget as HTMLButtonElement).style.color = "#07111f";
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,168,0,0.12)";
-              (e.currentTarget as HTMLButtonElement).style.color = "#f5a800";
-            }}
-          >
-            <UserCircle2 size={13} /> {c.cta_account}
-          </button>
-          <button
-            onClick={onStaffLogin}
-            className="text-xs transition-colors"
-            style={{ color: "#4a6080" }}
-            onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = "#e8f0ff")}
-            onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "#4a6080")}
-          >
-            {c.staff_link} →
-          </button>
-        </div>
+        {/* Mobile menu */}
+        {mobileOpen && (
+          <div className="md:hidden px-5 pb-5 pt-2 space-y-1" style={{ background: B.white, borderTop: `1px solid ${B.creamDark}` }}>
+            {NAV_LINKS.map(link => (
+              <button key={link.label} onClick={() => { link.action(); setMobileOpen(false); }}
+                className="w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-colors"
+                style={{ color: B.text }}
+                onMouseEnter={e => (e.currentTarget.style.background = B.creamDark)}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+              >{link.label}</button>
+            ))}
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => { window.location.href = "/customer"; }}
+                className="flex-1 py-3 rounded-full text-sm font-bold border-2 transition-all"
+                style={{ borderColor: B.navy, color: B.navy }}>
+                {lang === "en" ? "My Account" : "حسابي"}
+              </button>
+              <button onClick={() => { scrollToOrder(); setMobileOpen(false); }}
+                className="flex-1 py-3 rounded-full text-sm font-bold transition-all"
+                style={{ background: B.gold, color: B.navy }}>
+                {lang === "en" ? "Order Now" : "اطلب الآن"}
+              </button>
+            </div>
+            <button onClick={onStaffLogin} className="w-full text-center text-xs py-2 mt-1"
+              style={{ color: B.muted }}>Staff Portal →</button>
+          </div>
+        )}
       </nav>
 
-      {/* ── HERO ────────────────────────────────────────────────── */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center px-5 pt-20 pb-16 text-center">
-
-        {/* Ambient glows — navy + gold */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[700px] rounded-full blur-[140px]"
-            style={{ background: "rgba(26,58,110,0.25)" }} />
-          <div className="absolute top-1/2 left-1/4 w-[350px] h-[350px] rounded-full blur-[100px]"
-            style={{ background: "rgba(245,168,0,0.06)" }} />
-          <div className="absolute top-1/3 right-1/4 w-[250px] h-[250px] rounded-full blur-[80px]"
-            style={{ background: "rgba(35,84,164,0.15)" }} />
+      {/* ══════════════════════════════════════════════════════
+          HERO
+      ══════════════════════════════════════════════════════ */}
+      <section
+        className="relative min-h-screen flex flex-col items-center justify-center text-center px-5 pt-24 pb-16 overflow-hidden"
+        style={{ background: B.navy }}
+      >
+        {/* Background texture layers */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 90% 70% at 50% 40%, rgba(26,58,110,0.6) 0%, rgba(7,17,31,0.95) 100%)" }} />
+          <div className="absolute top-0 left-0 right-0 h-1 opacity-60" style={{ background: `linear-gradient(to right, transparent, ${B.gold}, transparent)` }} />
+          {/* Decorative circles */}
+          <div className="absolute -top-20 -left-20 w-96 h-96 rounded-full opacity-10" style={{ background: B.gold, filter: "blur(80px)" }} />
+          <div className="absolute -bottom-20 -right-20 w-96 h-96 rounded-full opacity-8" style={{ background: "#1a3a6e", filter: "blur(100px)" }} />
+          {/* Subtle dot grid */}
+          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
         </div>
 
-        {/* Decorative watermark */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden" aria-hidden>
-          <span className="text-[18vw] font-black leading-none whitespace-nowrap"
-            style={{ color: "rgba(26,58,110,0.12)" }}>
+        {/* Watermark */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
+          <span className="text-[22vw] font-black leading-none" style={{ color: "rgba(26,58,110,0.12)", letterSpacing: "-0.05em" }}>
             قرطاس
           </span>
         </div>
 
-        {/* Hero logo — large, centered */}
-        <div className="relative mb-8 z-10">
-          <div className="relative">
-            {/* Glow ring behind logo */}
-            <div className="absolute inset-0 rounded-full blur-2xl scale-110"
-              style={{ background: "rgba(245,168,0,0.12)" }} />
-            <img
-              src="/logo.png"
-              alt="Ink & Drink by Qurtaas"
-              className="relative w-48 sm:w-64 h-auto mx-auto drop-shadow-2xl"
-              onError={e => {
-                (e.target as HTMLImageElement).style.display = "none";
-                (e.target as HTMLImageElement).nextElementSibling?.removeAttribute("style");
-              }}
-            />
-            {/* Fallback coffee icon */}
-            <div style={{ display: "none", background: "rgba(26,58,110,0.4)", border: "1px solid rgba(245,168,0,0.3)", boxShadow: "0 0 60px rgba(245,168,0,0.2)" }}
-              className="w-24 h-24 rounded-full flex items-center justify-center mx-auto">
-              <span className="text-5xl">☕</span>
-            </div>
+        {/* Content */}
+        <div className="relative z-10 max-w-3xl mx-auto">
+          {/* Eyebrow */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-6"
+            style={{ background: "rgba(245,168,0,0.15)", border: `1px solid rgba(245,168,0,0.3)`, color: B.gold }}>
+            ✦ {lang === "en" ? "Erbil's Study Café" : "مقهى الدراسة في أربيل"}
           </div>
-        </div>
 
-        {/* Tagline */}
-        <div className="relative z-10 max-w-xl mx-auto mb-10">
-          <h2 className="text-3xl sm:text-4xl font-black mb-4 leading-tight" style={{ color: "#e8f0ff" }}>
-            {c.tagline}
-          </h2>
-          <p className="text-sm sm:text-base leading-relaxed" style={{ color: "#6b83a8" }}>
-            {c.subtitle}
+          {/* Headline */}
+          <h1 className="font-black leading-[1.05] mb-6"
+            style={{ fontSize: "clamp(2.8rem, 7vw, 5.5rem)", color: B.white }}>
+            {lang === "en" ? (
+              <>Fresh Crafted.<br /><span style={{ color: B.gold }}>Deeply Focused.</span></>
+            ) : (
+              <>محضَّر بعناية.<br /><span style={{ color: B.gold }}>تركيزٌ عميق.</span></>
+            )}
+          </h1>
+
+          {/* Sub */}
+          <p className="text-lg sm:text-xl mb-10 max-w-xl mx-auto leading-relaxed"
+            style={{ color: "rgba(232,240,255,0.65)" }}>
+            {lang === "en"
+              ? "Specialty coffee, fresh bites and quiet spaces — everything a student needs to thrive."
+              : "قهوة متخصصة، وجبات طازجة، ومساحات هادئة — كل ما يحتاجه الطالب للنجاح."}
           </p>
-        </div>
 
-        {/* CTAs */}
-        <div className="relative z-10 flex flex-col sm:flex-row items-center gap-3 flex-wrap justify-center">
-          <button
-            onClick={scrollToOrder}
-            className="group flex items-center gap-2 font-bold px-7 py-4 rounded-2xl text-base transition-all active:scale-[0.98]"
-            style={{
-              background: "#f5a800",
-              color: "#07111f",
-              boxShadow: "0 0 30px rgba(245,168,0,0.35)",
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = "#e09600";
-              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 45px rgba(245,168,0,0.55)";
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = "#f5a800";
-              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 30px rgba(245,168,0,0.35)";
-            }}
-          >
-            ☕ {c.cta_order}
-            <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
-          </button>
-          {/* My Account CTA */}
-          <button
-            onClick={() => { window.location.href = "/customer"; }}
-            className="group flex items-center gap-2 font-bold px-7 py-4 rounded-2xl text-base transition-all active:scale-[0.98]"
-            style={{
-              background: "rgba(245,168,0,0.1)",
-              color: "#f5a800",
-              border: "1px solid rgba(245,168,0,0.35)",
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,168,0,0.2)";
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(245,168,0,0.6)";
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,168,0,0.1)";
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(245,168,0,0.35)";
-            }}
-          >
-            <UserCircle2 size={16} /> {c.cta_account}
-          </button>
-          <button
-            onClick={scrollToOrder}
-            className="flex items-center gap-2 text-sm font-medium transition-colors px-4 py-3"
-            style={{ color: "#4a6080" }}
-            onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = "#f5a800")}
-            onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "#4a6080")}
-          >
-            {c.cta_scroll} <ChevronDown size={15} className="animate-bounce" />
-          </button>
-        </div>
+          {/* CTAs */}
+          <div className="flex flex-wrap items-center justify-center gap-3 mb-14">
+            <button
+              onClick={scrollToOrder}
+              className="group flex items-center gap-2 font-bold px-8 py-4 rounded-full text-base transition-all active:scale-[0.98] shadow-lg"
+              style={{ background: B.gold, color: B.navy, boxShadow: `0 8px 32px rgba(245,168,0,0.4)` }}
+              onMouseEnter={e => { e.currentTarget.style.background = B.goldDark; e.currentTarget.style.boxShadow = `0 12px 40px rgba(245,168,0,0.55)`; }}
+              onMouseLeave={e => { e.currentTarget.style.background = B.gold;     e.currentTarget.style.boxShadow = `0 8px 32px rgba(245,168,0,0.4)`; }}
+            >
+              {lang === "en" ? "Order from Your Table" : "اطلب من طاولتك"}
+              <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+            </button>
+            <button
+              onClick={() => { window.location.href = "/customer"; }}
+              className="flex items-center gap-2 font-bold px-8 py-4 rounded-full text-base transition-all active:scale-[0.98]"
+              style={{ background: "rgba(255,255,255,0.1)", color: B.white, border: "1.5px solid rgba(255,255,255,0.3)", backdropFilter: "blur(8px)" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.18)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.5)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)";  e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}
+            >
+              <UserCircle2 size={16} />
+              {lang === "en" ? "My Account" : "حسابي"}
+            </button>
+          </div>
 
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 opacity-30">
-          <div className="w-px h-16 mx-auto"
-            style={{ background: "linear-gradient(to bottom, transparent, #f5a800)" }} />
-        </div>
-      </section>
-
-      {/* ── FEATURES ────────────────────────────────────────────── */}
-      <section className="px-5 py-20 max-w-5xl mx-auto">
-        <div className="text-center mb-12">
-          <p className="text-xs font-bold uppercase tracking-[0.3em] mb-3" style={{ color: "#f5a800" }}>
-            {lang === "en" ? "The Experience" : "التجربة"}
-          </p>
-          <h2 className="text-3xl sm:text-4xl font-black" style={{ color: "#e8f0ff" }}>{c.why_title}</h2>
-          <div className="w-12 h-0.5 mx-auto mt-4" style={{ background: "#f5a800" }} />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {c.features.map((f, i) => {
-            const Icon = f.icon;
-            return (
-              <div
-                key={i}
-                className="group rounded-3xl p-7 transition-all duration-300 hover:-translate-y-1 cursor-default"
-                style={{
-                  background: "rgba(13,30,60,0.7)",
-                  border: "1px solid rgba(26,58,110,0.35)",
-                  backdropFilter: "blur(12px)",
-                }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLDivElement).style.border = "1px solid rgba(245,168,0,0.35)";
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = "0 0 30px rgba(245,168,0,0.08)";
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLDivElement).style.border = "1px solid rgba(26,58,110,0.35)";
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
-                }}
-              >
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-5 transition-colors"
-                  style={{ background: "rgba(245,168,0,0.1)", border: "1px solid rgba(245,168,0,0.2)" }}>
-                  <Icon size={22} style={{ color: "#f5a800" }} />
-                </div>
-                <h3 className="font-bold text-lg mb-2" style={{ color: "#e8f0ff" }}>{f.title}</h3>
-                <p className="text-sm leading-relaxed" style={{ color: "#6b83a8" }}>{f.body}</p>
+          {/* Stats strip */}
+          <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-10">
+            {[
+              { n: "20+", label: lang === "en" ? "Tables" : "طاولة" },
+              { n: "50+", label: lang === "en" ? "Menu Items" : "صنف" },
+              { n: "4",   label: lang === "en" ? "Loyalty Tiers" : "مستويات" },
+              { n: "∞",   label: lang === "en" ? "Study Hours" : "ساعة دراسة" },
+            ].map(s => (
+              <div key={s.n} className="text-center">
+                <p className="text-2xl font-black" style={{ color: B.gold }}>{s.n}</p>
+                <p className="text-xs" style={{ color: "rgba(232,240,255,0.45)" }}>{s.label}</p>
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
+
+        {/* Scroll chevron */}
+        <button onClick={scrollToOrder} className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce opacity-40 z-10" style={{ color: B.white }}>
+          <ChevronDown size={28} />
+        </button>
       </section>
 
-      {/* ── QUOTE BREAK ─────────────────────────────────────────── */}
-      <div className="relative py-16 px-5 overflow-hidden">
-        <div className="absolute inset-0"
-          style={{ background: "linear-gradient(to right, transparent, rgba(26,58,110,0.15), transparent)" }} />
-        <div className="relative z-10 max-w-2xl mx-auto text-center">
-          <p className="text-xl sm:text-2xl font-bold italic leading-relaxed mb-3"
-            style={{ color: "rgba(232,240,255,0.75)" }}>
-            {c.quote}
-          </p>
-          <p className="text-sm" style={{ color: "#4a6080" }}>{c.quote_sub}</p>
-        </div>
-      </div>
-
-      {/* ── TABLE ORDER ─────────────────────────────────────────── */}
-      <section ref={orderRef} id="order" className="px-5 py-20 max-w-3xl mx-auto">
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-widest mb-4"
-            style={{ background: "rgba(245,168,0,0.1)", border: "1px solid rgba(245,168,0,0.25)", color: "#f5a800" }}>
-            🪑 {lang === "en" ? "Dine-In Order" : "طلب داخلي"}
+      {/* ══════════════════════════════════════════════════════
+          MENU CATEGORIES  (Panera-style grid)
+      ══════════════════════════════════════════════════════ */}
+      <section className="py-20 px-5" style={{ background: B.cream }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-xs font-bold uppercase tracking-[0.3em] mb-3" style={{ color: B.gold }}>
+              {lang === "en" ? "What We Craft" : "ما نصنعه"}
+            </p>
+            <h2 className="font-black mb-4" style={{ fontSize: "clamp(2rem,4vw,3rem)", color: B.navy }}>
+              {lang === "en" ? "Explore Our Menu" : "اكتشف قائمتنا"}
+            </h2>
+            <p className="text-base max-w-lg mx-auto" style={{ color: B.muted }}>
+              {lang === "en"
+                ? "Everything made with care — from the first espresso shot to the last crumb."
+                : "كل شيء مصنوع بعناية — من أول رشفة إسبريسو حتى آخر لقمة."}
+            </p>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-black mb-3" style={{ color: "#e8f0ff" }}>{c.table_heading}</h2>
-          <p className="text-sm max-w-md mx-auto leading-relaxed" style={{ color: "#6b83a8" }}>{c.table_sub}</p>
-        </div>
 
-        {/* Table number grid (1–20) */}
-        <div className="rounded-3xl p-6 mb-5"
-          style={{ background: "rgba(13,30,60,0.6)", border: "1px solid rgba(26,58,110,0.3)" }}>
-          <p className="text-xs uppercase tracking-widest mb-5 text-center font-semibold"
-            style={{ color: "#4a6080" }}>
-            {lang === "en" ? "Tables 1 – 20" : "الطاولات ١ – ٢٠"}
-          </p>
-          <div className="grid grid-cols-5 sm:grid-cols-10 gap-3 justify-items-center">
-            {Array.from({ length: 20 }, (_, i) => i + 1).map(n => (
+          {/* Category cards grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {CATEGORIES.map((cat, i) => (
               <button
-                key={n}
-                onClick={() => goToTable(n)}
-                className="w-11 h-11 rounded-xl font-bold text-sm transition-all duration-200 active:scale-95"
-                style={{ background: "rgba(17,36,71,0.8)", border: "1px solid rgba(26,58,110,0.4)", color: "#6b83a8" }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "#f5a800";
-                  (e.currentTarget as HTMLButtonElement).style.color = "#07111f";
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = "#f5a800";
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(17,36,71,0.8)";
-                  (e.currentTarget as HTMLButtonElement).style.color = "#6b83a8";
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(26,58,110,0.4)";
-                }}
+                key={i}
+                onClick={scrollToOrder}
+                className="group relative rounded-3xl overflow-hidden text-left transition-all duration-300 hover:-translate-y-1 active:scale-[0.98]"
+                style={{ background: cat.bg, minHeight: 190, boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}
+                onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 12px 40px rgba(0,0,0,0.25)")}
+                onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.15)")}
               >
-                {n}
+                {/* Glow */}
+                <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-20 -translate-y-8 translate-x-8 transition-all duration-300 group-hover:opacity-30 group-hover:scale-125"
+                  style={{ background: cat.accent, filter: "blur(30px)" }} />
+                {/* Content */}
+                <div className="relative p-6 h-full flex flex-col justify-between">
+                  <span className="text-5xl block mb-auto">{cat.emoji}</span>
+                  <div className="mt-6">
+                    <p className="font-bold text-base text-white leading-snug mb-0.5">{cat.label}</p>
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>{cat.sub}</p>
+                  </div>
+                </div>
+                {/* Arrow on hover */}
+                <div className="absolute bottom-5 right-5 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 -translate-x-2 group-hover:translate-x-0"
+                  style={{ background: "rgba(255,255,255,0.2)" }}>
+                  <ArrowRight size={14} className="text-white" />
+                </div>
               </button>
             ))}
           </div>
-        </div>
 
-        {/* Manual input for higher table numbers */}
-        <div className="flex items-center gap-3 justify-center">
-          <span className="text-sm shrink-0" style={{ color: "#4a6080" }}>{c.table_more}</span>
-          <input
-            type="number"
-            min={1}
-            max={99}
-            value={tableInput}
-            onChange={e => { setTableInput(e.target.value); setTableErr(false); }}
-            onKeyDown={e => e.key === "Enter" && handleManualTable()}
-            placeholder="21…"
-            className="w-20 text-center font-bold text-sm h-11 rounded-xl focus:outline-none transition-colors"
-            style={{
-              background: "rgba(17,36,71,0.8)",
-              border: tableErr ? "1px solid #ef4444" : "1px solid rgba(26,58,110,0.5)",
-              color: "#e8f0ff",
-            }}
-            onFocus={e => {
-              if (!tableErr) (e.currentTarget as HTMLInputElement).style.borderColor = "#f5a800";
-            }}
-            onBlur={e => {
-              if (!tableErr) (e.currentTarget as HTMLInputElement).style.borderColor = "rgba(26,58,110,0.5)";
-            }}
-          />
-          <button
-            onClick={handleManualTable}
-            className="flex items-center gap-1.5 font-bold text-sm px-5 h-11 rounded-xl transition-all active:scale-95"
-            style={{ background: "#f5a800", color: "#07111f" }}
-            onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = "#e09600")}
-            onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = "#f5a800")}
-          >
-            {c.table_go} <ArrowRight size={14} />
-          </button>
+          {/* Browse all */}
+          <div className="text-center mt-8">
+            <button
+              onClick={scrollToOrder}
+              className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-full transition-all"
+              style={{ border: `2px solid ${B.navy}`, color: B.navy }}
+              onMouseEnter={e => { e.currentTarget.style.background = B.navy; e.currentTarget.style.color = B.white; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = B.navy; }}
+            >
+              {lang === "en" ? "View Full Menu" : "عرض القائمة الكاملة"} <ArrowRight size={14} />
+            </button>
+          </div>
         </div>
-        {tableErr && (
-          <p className="text-red-400 text-xs text-center mt-2">{c.table_err}</p>
-        )}
       </section>
 
-      {/* ── ATMOSPHERE STRIP ────────────────────────────────────── */}
-      <div className="px-5 py-12"
-        style={{ background: "linear-gradient(to bottom, transparent, rgba(13,30,60,0.4))" }}>
-        <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-4 text-center">
-            {[
-              { e: "📶", l: lang === "en" ? "Free Wi-Fi"    : "إنترنت مجاني"   },
-              { e: "🔌", l: lang === "en" ? "Power Outlets" : "منافذ شحن"      },
-              { e: "🎧", l: lang === "en" ? "Chill Music"   : "موسيقى هادئة"   },
-              { e: "❄️", l: lang === "en" ? "A/C"           : "تكييف"          },
-              { e: "🖨️", l: lang === "en" ? "Printing"      : "طباعة"          },
-              { e: "📚", l: lang === "en" ? "Quiet Zone"    : "منطقة هادئة"    },
-            ].map(({ e, l }) => (
-              <div key={l} className="flex flex-col items-center gap-2">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl"
-                  style={{ background: "rgba(13,30,60,0.8)", border: "1px solid rgba(26,58,110,0.3)" }}>
-                  {e}
+      {/* ══════════════════════════════════════════════════════
+          ORDER YOUR WAY  (3-column Panera-style)
+      ══════════════════════════════════════════════════════ */}
+      <section className="py-20 px-5" style={{ background: B.navy }}>
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-xs font-bold uppercase tracking-[0.3em] mb-3" style={{ color: B.gold }}>
+              {lang === "en" ? "Your Way" : "على طريقتك"}
+            </p>
+            <h2 className="font-black mb-4" style={{ fontSize: "clamp(2rem,4vw,3rem)", color: B.white }}>
+              {lang === "en" ? "Order How You Like" : "اطلب كيفما تشاء"}
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {ORDER_MODES.map((mode, i) => (
+              <div
+                key={i}
+                className="rounded-3xl p-8 text-center flex flex-col items-center gap-4 transition-all duration-300 hover:-translate-y-1"
+                style={{ background: "#0d1e3c", border: "1px solid rgba(26,58,110,0.5)" }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(245,168,0,0.35)")}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(26,58,110,0.5)")}
+              >
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+                  style={{ background: "rgba(245,168,0,0.12)", border: "1px solid rgba(245,168,0,0.25)" }}>
+                  {mode.icon}
                 </div>
-                <p className="text-xs" style={{ color: "#4a6080" }}>{l}</p>
+                <h3 className="text-xl font-black" style={{ color: B.white }}>{mode.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: "rgba(232,240,255,0.55)" }}>{mode.sub}</p>
+                <button
+                  onClick={() => {
+                    if (mode.action === "scroll")   scrollToOrder();
+                    if (mode.action === "account")  window.location.href = "/customer";
+                  }}
+                  className="mt-auto w-full py-3 rounded-full text-sm font-bold transition-all"
+                  style={{ background: i === 0 ? B.gold : "transparent", color: i === 0 ? B.navy : B.gold, border: `2px solid ${B.gold}` }}
+                  onMouseEnter={e => { e.currentTarget.style.background = B.gold; e.currentTarget.style.color = B.navy; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = i === 0 ? B.gold : "transparent"; e.currentTarget.style.color = i === 0 ? B.navy : B.gold; }}
+                >
+                  {mode.cta}
+                </button>
               </div>
             ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* ── FOOTER ──────────────────────────────────────────────── */}
-      <footer className="px-5 py-8 mt-4"
-        style={{ borderTop: "1px solid rgba(26,58,110,0.25)" }}>
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="" className="h-7 w-auto opacity-60"
-              onError={e => ((e.target as HTMLImageElement).style.display = "none")} />
-            <p className="text-xs" style={{ color: "#344f72" }}>{c.footer_copy}</p>
+      {/* ══════════════════════════════════════════════════════
+          TABLE ORDER SECTION  (redesigned)
+      ══════════════════════════════════════════════════════ */}
+      <section ref={orderRef} id="order" className="py-20 px-5" style={{ background: B.creamDark }}>
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-5"
+              style={{ background: "rgba(245,168,0,0.15)", border: "1px solid rgba(245,168,0,0.35)", color: B.goldDark }}>
+              🪑 {lang === "en" ? "Dine In" : "داخل المقهى"}
+            </div>
+            <h2 className="font-black mb-4" style={{ fontSize: "clamp(2rem,4vw,3rem)", color: B.navy }}>
+              {lang === "en" ? "Already Here?" : "هل أنت هنا؟"}
+            </h2>
+            <p className="text-base max-w-md mx-auto" style={{ color: B.muted }}>
+              {lang === "en"
+                ? "Tap your table number and start ordering — it'll be ready before your next paragraph."
+                : "اختر رقم طاولتك وابدأ طلبك — سيكون جاهزاً قبل انتهائك من الفقرة التالية."}
+            </p>
           </div>
-          <div className="flex items-center gap-5">
+
+          {/* Table grid */}
+          <div className="rounded-3xl p-8 mb-6" style={{ background: B.white, boxShadow: "0 4px 40px rgba(0,0,0,0.08)" }}>
+            <p className="text-xs font-bold uppercase tracking-widest text-center mb-6" style={{ color: B.muted }}>
+              {lang === "en" ? "Tables 1 – 20" : "الطاولات ١ – ٢٠"}
+            </p>
+            <div className="grid grid-cols-5 sm:grid-cols-10 gap-2.5 justify-items-center">
+              {Array.from({ length: 20 }, (_, i) => i + 1).map(n => (
+                <button
+                  key={n}
+                  onClick={() => goToTable(n)}
+                  className="w-12 h-12 rounded-2xl font-bold text-sm transition-all duration-200 active:scale-95"
+                  style={{ background: B.cream, color: B.muted, border: `2px solid ${B.creamDark}` }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = B.gold;
+                    e.currentTarget.style.color = B.navy;
+                    e.currentTarget.style.borderColor = B.gold;
+                    e.currentTarget.style.boxShadow = `0 4px 16px rgba(245,168,0,0.4)`;
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = B.cream;
+                    e.currentTarget.style.color = B.muted;
+                    e.currentTarget.style.borderColor = B.creamDark;
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Manual input */}
+          <div className="flex items-center gap-3 justify-center flex-wrap">
+            <span className="text-sm font-medium" style={{ color: B.muted }}>
+              {lang === "en" ? "Other table:" : "طاولة أخرى:"}
+            </span>
+            <input
+              type="number" min={1} max={99} placeholder="21…"
+              value={tableInput}
+              onChange={e => { setTableInput(e.target.value); setTableErr(false); }}
+              onKeyDown={e => e.key === "Enter" && handleManualTable()}
+              className="w-24 text-center font-bold text-sm h-12 rounded-2xl focus:outline-none transition-all"
+              style={{
+                background: B.white,
+                border: tableErr ? "2px solid #ef4444" : `2px solid ${B.creamDark}`,
+                color: B.navy,
+              }}
+              onFocus={e => { if (!tableErr) e.currentTarget.style.borderColor = B.gold; }}
+              onBlur={e  => { if (!tableErr) e.currentTarget.style.borderColor = B.creamDark; }}
+            />
             <button
-              onClick={onStaffLogin}
-              className="text-xs transition-colors"
-              style={{ color: "#344f72" }}
-              onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = "#f5a800")}
-              onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "#344f72")}
+              onClick={handleManualTable}
+              className="flex items-center gap-2 font-bold text-sm px-6 h-12 rounded-2xl transition-all"
+              style={{ background: B.navy, color: B.white }}
+              onMouseEnter={e => (e.currentTarget.style.background = "#1a3a6e")}
+              onMouseLeave={e => (e.currentTarget.style.background = B.navy)}
             >
-              {c.staff_link}
+              {lang === "en" ? "Go" : "انتقل"} <ArrowRight size={14} />
+            </button>
+          </div>
+          {tableErr && <p className="text-red-500 text-xs text-center mt-2">{lang === "en" ? "Enter a table number between 1 and 99" : "أدخل رقماً بين ١ و ٩٩"}</p>}
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════
+          LOYALTY REWARDS  (like MyPanera)
+      ══════════════════════════════════════════════════════ */}
+      <section className="py-20 px-5 relative overflow-hidden" style={{ background: B.navy }}>
+        {/* Gold glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] rounded-full opacity-10 pointer-events-none"
+          style={{ background: B.gold, filter: "blur(80px)" }} />
+
+        <div className="relative max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-5"
+              style={{ background: "rgba(245,168,0,0.15)", border: "1px solid rgba(245,168,0,0.3)", color: B.gold }}>
+              <Gift size={12} /> {lang === "en" ? "Ink & Drink Rewards" : "مكافآت حبر ومشروب"}
+            </div>
+            <h2 className="font-black mb-4" style={{ fontSize: "clamp(2rem,4vw,3rem)", color: B.white }}>
+              {lang === "en" ? "Every Sip Earns" : "كل رشفة تكسبك"}
+            </h2>
+            <p className="text-base max-w-lg mx-auto mb-10" style={{ color: "rgba(232,240,255,0.55)" }}>
+              {lang === "en"
+                ? "Join our loyalty program and climb from Bronze to Platinum — the more you study (and sip), the more you earn."
+                : "انضم لبرنامج المكافآت وارتقِ من البرونز إلى البلاتينيوم — كلما درست وشربت، كلما ربحت أكثر."}
+            </p>
+          </div>
+
+          {/* Tier cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+            {TIERS.map(tier => (
+              <div
+                key={tier.label}
+                className="rounded-2xl p-5 text-center transition-all duration-300 hover:-translate-y-1"
+                style={{ background: "#0d1e3c", border: `1px solid ${tier.color}33` }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = `${tier.color}66`)}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = `${tier.color}33`)}
+              >
+                <div className="text-3xl mb-3">{tier.emoji}</div>
+                <p className="font-black text-base mb-1" style={{ color: tier.color }}>{tier.label}</p>
+                <p className="text-xs leading-snug" style={{ color: "rgba(232,240,255,0.45)" }}>{tier.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* CTAs */}
+          <div className="flex flex-wrap gap-3 justify-center">
+            <button
+              onClick={() => { window.location.href = "/customer"; }}
+              className="flex items-center gap-2 font-bold px-8 py-4 rounded-full text-sm transition-all"
+              style={{ background: B.gold, color: B.navy, boxShadow: `0 8px 32px rgba(245,168,0,0.35)` }}
+              onMouseEnter={e => { e.currentTarget.style.background = B.goldDark; }}
+              onMouseLeave={e => { e.currentTarget.style.background = B.gold; }}
+            >
+              <Star size={15} /> {lang === "en" ? "Join Free" : "انضم مجاناً"}
             </button>
             <button
-              onClick={() => setLang(lang === "en" ? "ar" : "en")}
-              className="text-xs transition-colors"
-              style={{ color: "#344f72" }}
-              onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = "#f5a800")}
-              onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "#344f72")}
+              onClick={() => { window.location.href = "/customer"; }}
+              className="flex items-center gap-2 font-bold px-8 py-4 rounded-full text-sm transition-all"
+              style={{ color: B.white, border: `2px solid rgba(255,255,255,0.25)` }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.5)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; }}
             >
-              {lang === "en" ? "العربية" : "English"}
+              {lang === "en" ? "Sign In" : "تسجيل الدخول"}
             </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════
+          WHY INK & DRINK  (atmosphere strip)
+      ══════════════════════════════════════════════════════ */}
+      <section className="py-20 px-5" style={{ background: B.cream }}>
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-xs font-bold uppercase tracking-[0.3em] mb-3" style={{ color: B.gold }}>
+              {lang === "en" ? "The Experience" : "التجربة"}
+            </p>
+            <h2 className="font-black mb-4" style={{ fontSize: "clamp(2rem,4vw,3rem)", color: B.navy }}>
+              {lang === "en" ? "Built for Students" : "صُمِّم للطلاب"}
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
+            {PERKS.map(({ icon: Icon, label, sub }) => (
+              <div
+                key={label}
+                className="rounded-3xl p-7 text-center transition-all duration-300 hover:-translate-y-1 group"
+                style={{ background: B.white, border: `2px solid ${B.creamDark}`, boxShadow: "0 2px 16px rgba(0,0,0,0.04)" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = B.gold; e.currentTarget.style.boxShadow = `0 8px 32px rgba(245,168,0,0.12)`; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = B.creamDark; e.currentTarget.style.boxShadow = "0 2px 16px rgba(0,0,0,0.04)"; }}
+              >
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 transition-colors"
+                  style={{ background: "rgba(245,168,0,0.1)", border: "2px solid rgba(245,168,0,0.2)" }}>
+                  <Icon size={22} style={{ color: B.gold }} />
+                </div>
+                <h3 className="font-bold text-base mb-1.5" style={{ color: B.navy }}>{label}</h3>
+                <p className="text-sm" style={{ color: B.muted }}>{sub}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════
+          FULL-WIDTH QUOTE BANNER
+      ══════════════════════════════════════════════════════ */}
+      <section className="py-24 px-5 relative overflow-hidden" style={{ background: B.gold }}>
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute -top-10 -left-10 w-64 h-64 rounded-full opacity-20" style={{ background: B.goldDark, filter: "blur(60px)" }} />
+          <div className="absolute -bottom-10 -right-10 w-64 h-64 rounded-full opacity-20" style={{ background: B.goldDark, filter: "blur(60px)" }} />
+        </div>
+        <div className="relative max-w-3xl mx-auto text-center">
+          <p className="font-black italic leading-snug mb-4" style={{ fontSize: "clamp(1.6rem,4vw,2.8rem)", color: B.navy }}>
+            {lang === "en"
+              ? "\"The best ideas are born over a perfect cup of coffee.\""
+              : "«أفضل الأفكار تولد على كوب قهوة مثالي.»"}
+          </p>
+          <p className="font-semibold text-sm" style={{ color: "rgba(7,17,31,0.6)" }}>
+            {lang === "en" ? "Come as a student. Leave as a thinker." : "تعال طالباً. وارحل مفكراً."}
+          </p>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════
+          FIND US  (simple location strip)
+      ══════════════════════════════════════════════════════ */}
+      <section className="py-16 px-5" style={{ background: B.navy }}>
+        <div className="max-w-4xl mx-auto">
+          <div className="rounded-3xl p-8 sm:p-10 flex flex-col sm:flex-row items-center gap-8"
+            style={{ background: "#0d1e3c", border: "1px solid rgba(26,58,110,0.5)" }}>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-xl font-black mb-2" style={{ color: B.white }}>
+                {lang === "en" ? "Find Ink & Drink" : "اعثر علينا"}
+              </h3>
+              <p className="text-sm mb-4" style={{ color: "rgba(232,240,255,0.55)" }}>
+                {lang === "en"
+                  ? "Located in the heart of Erbil — your second home for study and specialty coffee."
+                  : "في قلب أربيل — منزلك الثاني للدراسة والقهوة المتخصصة."}
+              </p>
+              <div className="space-y-2 text-sm" style={{ color: "rgba(232,240,255,0.55)" }}>
+                <div className="flex items-center gap-2"><MapPin size={13} style={{ color: B.gold }} /> Erbil, Kurdistan Region, Iraq</div>
+                <div className="flex items-center gap-2"><Clock size={13} style={{ color: B.gold }} /> {lang === "en" ? "Every day: 8 AM – Midnight" : "يومياً: ٨ ص – ١٢ م"}</div>
+                <div className="flex items-center gap-2"><Phone size={13} style={{ color: B.gold }} /> +964 750 000 0000</div>
+              </div>
+            </div>
+            <div className="shrink-0 flex flex-col gap-3">
+              <button
+                onClick={scrollToOrder}
+                className="px-7 py-3 rounded-full font-bold text-sm transition-all"
+                style={{ background: B.gold, color: B.navy }}
+                onMouseEnter={e => (e.currentTarget.style.background = B.goldDark)}
+                onMouseLeave={e => (e.currentTarget.style.background = B.gold)}
+              >
+                {lang === "en" ? "Order Now" : "اطلب الآن"}
+              </button>
+              <button
+                className="px-7 py-3 rounded-full font-bold text-sm transition-all"
+                style={{ color: B.white, border: "2px solid rgba(255,255,255,0.2)" }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)")}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)")}
+              >
+                {lang === "en" ? "Get Directions" : "الاتجاهات"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════
+          FOOTER
+      ══════════════════════════════════════════════════════ */}
+      <footer style={{ background: "#040d18", borderTop: "1px solid rgba(26,58,110,0.3)" }}>
+        <div className="max-w-6xl mx-auto px-5 py-14">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
+            {/* Brand column */}
+            <div className="col-span-2">
+              <img src="/logo.png" alt="Ink & Drink" className="h-12 w-auto mb-4 opacity-90"
+                onError={e => ((e.target as HTMLImageElement).style.display = "none")} />
+              <p className="text-sm leading-relaxed max-w-xs" style={{ color: "rgba(232,240,255,0.4)" }}>
+                {lang === "en"
+                  ? "Erbil's study café — where specialty coffee meets quiet focus."
+                  : "مقهى الدراسة في أربيل — حيث تلتقي القهوة المتخصصة بالتركيز الهادئ."}
+              </p>
+              <div className="flex gap-3 mt-5">
+                {["𝕏", "📷", "📘"].map(icon => (
+                  <button key={icon} className="w-9 h-9 rounded-full flex items-center justify-center text-sm transition-colors"
+                    style={{ background: "rgba(255,255,255,0.06)", color: "rgba(232,240,255,0.4)" }}
+                    onMouseEnter={e => { e.currentTarget.style.background = B.gold; e.currentTarget.style.color = B.navy; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(232,240,255,0.4)"; }}>
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Link columns */}
+            {[
+              {
+                title: lang === "en" ? "Menu" : "القائمة",
+                links: lang === "en"
+                  ? ["Espresso & Coffee", "Cold Drinks", "Pastries", "Wraps & Bites", "Seasonal Specials"]
+                  : ["إسبريسو وقهوة", "مشروبات باردة", "معجنات", "شطائر", "الإصدارات الموسمية"],
+              },
+              {
+                title: lang === "en" ? "Order" : "الطلب",
+                links: lang === "en"
+                  ? ["Order from Table", "My Account", "Loyalty Rewards", "Gift Cards"]
+                  : ["الطلب من الطاولة", "حسابي", "برنامج المكافآت", "بطاقات هدايا"],
+              },
+              {
+                title: lang === "en" ? "About" : "عنا",
+                links: lang === "en"
+                  ? ["Our Story", "Careers", "Press", "Staff Portal"]
+                  : ["قصتنا", "الوظائف", "الصحافة", "بوابة الموظفين"],
+              },
+            ].map(col => (
+              <div key={col.title}>
+                <h4 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: B.gold }}>{col.title}</h4>
+                <ul className="space-y-2.5">
+                  {col.links.map(link => (
+                    <li key={link}>
+                      <button
+                        className="text-sm transition-colors text-left"
+                        style={{ color: "rgba(232,240,255,0.4)" }}
+                        onMouseEnter={e => (e.currentTarget.style.color = B.white)}
+                        onMouseLeave={e => (e.currentTarget.style.color = "rgba(232,240,255,0.4)")}
+                        onClick={() => {
+                          if (link === "Staff Portal" || link === "بوابة الموظفين") onStaffLogin();
+                          if (link === "My Account"   || link === "حسابي") window.location.href = "/customer";
+                          if (link === "Order from Table" || link === "الطلب من الطاولة") scrollToOrder();
+                          if (link === "Loyalty Rewards"  || link === "برنامج المكافآت") window.location.href = "/customer";
+                        }}
+                      >
+                        {link}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8" style={{ borderTop: "1px solid rgba(26,58,110,0.3)" }}>
+            <p className="text-xs" style={{ color: "rgba(232,240,255,0.25)" }}>
+              © 2026 Ink & Drink by Qurtaas. {lang === "en" ? "All rights reserved." : "جميع الحقوق محفوظة."}
+            </p>
+            <div className="flex items-center gap-4">
+              <button onClick={() => setLang(lang === "en" ? "ar" : "en")}
+                className="text-xs transition-colors" style={{ color: "rgba(232,240,255,0.35)" }}
+                onMouseEnter={e => (e.currentTarget.style.color = B.gold)}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(232,240,255,0.35)")}>
+                {lang === "en" ? "العربية" : "English"}
+              </button>
+              {["Privacy", "Terms"].map(l => (
+                <button key={l} className="text-xs transition-colors" style={{ color: "rgba(232,240,255,0.35)" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = B.white)}
+                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(232,240,255,0.35)")}>
+                  {l}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </footer>
