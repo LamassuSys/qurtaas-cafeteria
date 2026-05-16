@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { useOrders, type Order } from "@/data/ordersStore";
+import { useOrders, type Order, type OrderItem } from "@/data/ordersStore";
+import { useMenu } from "@/data/menuStore";
 import {
   ArrowLeft, Home, Star, TrendingUp, ShoppingBag,
   Clock, ChefHat, Bell, CheckCircle, XCircle,
   Trophy, Zap, History, RefreshCw,
+  UtensilsCrossed, Plus, Minus, ShoppingCart, Loader2, Hash,
 } from "lucide-react";
 
 // ── Brand tokens ───────────────────────────────────────────────
@@ -95,7 +97,7 @@ interface Toast {
 export function CustomerDashboard({
   customerId,
   initialName,
-  tableNumber,
+  tableNumber: initialTableNumber,
   onBack,
 }: {
   customerId:   string;
@@ -103,13 +105,25 @@ export function CustomerDashboard({
   tableNumber?: number;
   onBack:       () => void;
 }) {
-  const { orders } = useOrders();
+  const { orders, createOrder } = useOrders();
+  const { items, categories, loading: menuLoading } = useMenu();
 
+  const [tab, setTab]               = useState<"account" | "menu">("account");
   const [profile, setProfile]       = useState<CustomerProfile | null>(null);
   const [loading, setLoading]       = useState(true);
   const [toasts, setToasts]         = useState<Toast[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const prevStatusRef               = useRef<Record<string, string>>({});
+
+  // ── Menu / ordering state ──────────────────────────────────
+  const [tableNumber, setTableNumber] = useState<number | undefined>(initialTableNumber);
+  const [tableInput,  setTableInput]  = useState("");
+  const [catFilter,   setCatFilter]   = useState("__all__");
+  const [cart,        setCart]        = useState<OrderItem[]>([]);
+  const [showCart,    setShowCart]    = useState(false);
+  const [orderNotes,  setOrderNotes]  = useState("");
+  const [placing,     setPlacing]     = useState(false);
+  const [orderedId,   setOrderedId]   = useState<string | null>(null);
 
   // My orders (filtered by customerId from the global store)
   const myOrders = orders.filter(o => o.customerId === customerId);
@@ -185,6 +199,52 @@ export function CustomerDashboard({
   }, [myOrders.map(o => `${o.id}:${o.status}`).join("|")]);
 
   const dismissToast = (id: string) => setToasts(t => t.filter(x => x.id !== id));
+
+  // ── Menu / cart helpers ────────────────────────────────────
+  const activeItems   = items.filter(i => i.active);
+  const displayItems  = catFilter === "__all__"
+    ? activeItems
+    : activeItems.filter(i => i.category === catFilter);
+
+  const cartCount = cart.reduce((s, i) => s + i.qty, 0);
+  const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+  const addToCart = (item: typeof activeItems[number]) => {
+    setCart(prev => {
+      const ex = prev.find(c => c.menuItemId === item.id);
+      if (ex) return prev.map(c => c.menuItemId === item.id ? { ...c, qty: c.qty + 1 } : c);
+      return [...prev, {
+        menuItemId: item.id, name: item.name, emoji: item.emoji,
+        category: item.category, price: item.price, cost: item.cost, qty: 1,
+      }];
+    });
+  };
+  const changeQty = (id: string, delta: number) =>
+    setCart(prev => prev.map(c => c.menuItemId === id ? { ...c, qty: c.qty + delta } : c).filter(c => c.qty > 0));
+
+  const placeOrder = async () => {
+    if (!cart.length || !tableNumber) return;
+    setPlacing(true);
+    try {
+      const order = await createOrder(
+        cart, profile?.name ?? initialName, orderNotes,
+        `table-${tableNumber}`, tableNumber, customerId,
+      );
+      setOrderedId(order.id);
+      setCart([]); setOrderNotes(""); setShowCart(false);
+      setTab("account");
+      // Show a toast confirming placement
+      const t: Toast = {
+        id: `placed-${order.id}`,
+        message: `Order #${order.orderNumber} placed! We'll notify you when it's ready. 🎉`,
+        color: C.gold,
+        icon: <CheckCircle size={14} />,
+      };
+      setToasts(prev => [t, ...prev].slice(0, 5));
+      setTimeout(() => setToasts(p => p.filter(x => x.id !== t.id)), 8000);
+    } catch (e) { console.error(e); }
+    finally { setPlacing(false); }
+  };
 
   // ── Tier calc ──────────────────────────────────────────────
   const tier = profile ? (TIER_CONFIG[profile.tier] ?? TIER_CONFIG.bronze) : TIER_CONFIG.bronze;
@@ -276,124 +336,287 @@ export function CustomerDashboard({
         </button>
       </div>
 
-      {/* ── Content ─────────────────────────────────────── */}
-      <div className="px-4 py-5 max-w-lg mx-auto space-y-5 pb-20">
+      {/* ── Tab bar ─────────────────────────────────────── */}
+      <div className="flex border-b" style={{ borderColor: C.border, background: C.surface }}>
+        {([
+          { id: "account",  label: "My Account",  icon: <Trophy size={14} /> },
+          { id: "menu",     label: "Menu & Order", icon: <UtensilsCrossed size={14} /> },
+        ] as const).map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors"
+            style={tab === t.id
+              ? { color: C.gold, borderBottom: `2px solid ${C.gold}` }
+              : { color: C.muted, borderBottom: "2px solid transparent" }}
+          >
+            {t.icon} {t.label}
+            {t.id === "menu" && cartCount > 0 && (
+              <span className="w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center"
+                style={{ background: C.gold, color: C.bg }}>{cartCount}</span>
+            )}
+          </button>
+        ))}
+      </div>
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <RefreshCw size={28} className="animate-spin" style={{ color: C.gold }} />
-            <p className="text-sm" style={{ color: C.muted }}>Loading your profile…</p>
-          </div>
-        ) : (
-          <>
-            {/* ── Membership card ─────────────────────── */}
-            <MembershipCard
-              profile={profile}
-              initialName={initialName}
-              tier={tier}
-              tierProgress={tierProgress}
-              tierSpent={tierSpent}
-            />
-
-            {/* ── Stats grid ──────────────────────────── */}
-            <div className="grid grid-cols-2 gap-3">
-              <StatCard
-                icon={<TrendingUp size={16} />}
-                label="Total Spent"
-                value={fmt(profile?.totalSpent ?? 0)}
-                color={C.gold}
-              />
-              <StatCard
-                icon={<ShoppingBag size={16} />}
-                label="Orders Placed"
-                value={String(totalOrders)}
-                color="#60a5fa"
-              />
-              <StatCard
-                icon={<Zap size={16} />}
-                label="Points Earned"
-                value={`${(profile?.points ?? 0).toLocaleString()} pts`}
-                sub={`≈ ${fmt(pointsValue)} redeemable`}
-                color="#a78bfa"
-              />
-              <StatCard
-                icon={<Star size={16} />}
-                label="Avg Order"
-                value={avgOrderValue ? fmt(avgOrderValue) : "—"}
-                color="#34d399"
-              />
+      {/* ── ACCOUNT TAB ─────────────────────────────────── */}
+      {tab === "account" && (
+        <div className="px-4 py-5 max-w-lg mx-auto space-y-5 pb-20">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-3">
+              <RefreshCw size={28} className="animate-spin" style={{ color: C.gold }} />
+              <p className="text-sm" style={{ color: C.muted }}>Loading your profile…</p>
             </div>
+          ) : (
+            <>
+              <MembershipCard profile={profile} initialName={initialName} tier={tier} tierProgress={tierProgress} tierSpent={tierSpent} />
+              <div className="grid grid-cols-2 gap-3">
+                <StatCard icon={<TrendingUp size={16} />} label="Total Spent"    value={fmt(profile?.totalSpent ?? 0)} color={C.gold} />
+                <StatCard icon={<ShoppingBag size={16} />} label="Orders Placed" value={String(totalOrders)}            color="#60a5fa" />
+                <StatCard icon={<Zap size={16} />}         label="Points Earned" value={`${(profile?.points ?? 0).toLocaleString()} pts`} sub={`≈ ${fmt(pointsValue)} redeemable`} color="#a78bfa" />
+                <StatCard icon={<Star size={16} />}        label="Avg Order"     value={avgOrderValue ? fmt(avgOrderValue) : "—"}           color="#34d399" />
+              </div>
 
-            {/* ── Active orders ───────────────────────── */}
-            {activeOrders.length > 0 && (
-              <section>
-                <h2 className="text-xs font-semibold uppercase tracking-widest mb-3"
-                  style={{ color: C.muted }}>
-                  Active Orders
-                </h2>
-                <div className="space-y-3">
-                  {activeOrders.map(order => (
-                    <ActiveOrderCard key={order.id} order={order} />
-                  ))}
+              {/* Quick link to menu */}
+              <button
+                onClick={() => setTab("menu")}
+                className="w-full flex items-center gap-3 rounded-2xl p-4 transition-all active:scale-[0.98] text-left"
+                style={{ background: C.goldDim, border: `1px solid ${C.goldBorder}` }}
+                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = C.gold)}
+                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = C.goldBorder)}
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background: C.gold + "22" }}>☕</div>
+                <div>
+                  <p className="font-bold text-sm" style={{ color: C.gold }}>Browse Menu &amp; Order</p>
+                  <p className="text-xs" style={{ color: C.muted }}>View our full menu and place an order from your table</p>
                 </div>
-              </section>
-            )}
+              </button>
 
-            {/* ── Order history ───────────────────────── */}
-            {historyOrders.length > 0 && (
-              <section>
-                <button
-                  onClick={() => setHistoryOpen(o => !o)}
-                  className="flex items-center justify-between w-full text-left"
-                >
-                  <h2 className="text-xs font-semibold uppercase tracking-widest"
-                    style={{ color: C.muted }}>
-                    <History size={12} className="inline mr-1.5 -mt-0.5" />
-                    Order History ({historyOrders.length})
-                  </h2>
-                  <span className="text-xs" style={{ color: C.faint }}>
-                    {historyOpen ? "▲ hide" : "▼ show"}
-                  </span>
-                </button>
+              {activeOrders.length > 0 && (
+                <section>
+                  <h2 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: C.muted }}>Active Orders</h2>
+                  <div className="space-y-3">{activeOrders.map(o => <ActiveOrderCard key={o.id} order={o} />)}</div>
+                </section>
+              )}
 
-                {historyOpen && (
-                  <div className="mt-3 space-y-2">
-                    {historyOrders.slice(0, 20).map(order => (
-                      <HistoryOrderCard key={order.id} order={order} />
-                    ))}
-                  </div>
-                )}
-              </section>
-            )}
+              {historyOrders.length > 0 && (
+                <section>
+                  <button onClick={() => setHistoryOpen(o => !o)} className="flex items-center justify-between w-full text-left">
+                    <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>
+                      <History size={12} className="inline mr-1.5 -mt-0.5" />Order History ({historyOrders.length})
+                    </h2>
+                    <span className="text-xs" style={{ color: C.faint }}>{historyOpen ? "▲ hide" : "▼ show"}</span>
+                  </button>
+                  {historyOpen && (
+                    <div className="mt-3 space-y-2">{historyOrders.slice(0, 20).map(o => <HistoryOrderCard key={o.id} order={o} />)}</div>
+                  )}
+                </section>
+              )}
 
-            {/* ── Empty state ─────────────────────────── */}
-            {myOrders.length === 0 && !loading && (
-              <div className="py-12 text-center rounded-2xl"
-                style={{ border: `1px dashed ${C.faint}` }}>
-                <ShoppingBag size={32} className="mx-auto mb-3 opacity-25" style={{ color: C.gold }} />
-                <p className="font-semibold" style={{ color: C.text }}>No orders yet</p>
-                <p className="text-sm mt-1" style={{ color: C.muted }}>
-                  {tableNumber
-                    ? "Browse the menu and place your first order!"
-                    : "Visit a table to start ordering."}
-                </p>
-                {tableNumber && (
-                  <button
-                    onClick={onBack}
-                    className="mt-4 px-5 py-2.5 rounded-full text-sm font-bold transition-all"
-                    style={{ background: C.gold, color: C.bg }}
-                  >
+              {myOrders.length === 0 && (
+                <div className="py-12 text-center rounded-2xl" style={{ border: `1px dashed ${C.faint}` }}>
+                  <ShoppingBag size={32} className="mx-auto mb-3 opacity-25" style={{ color: C.gold }} />
+                  <p className="font-semibold" style={{ color: C.text }}>No orders yet</p>
+                  <p className="text-sm mt-1" style={{ color: C.muted }}>Browse the menu and place your first order!</p>
+                  <button onClick={() => setTab("menu")} className="mt-4 px-5 py-2.5 rounded-full text-sm font-bold transition-all" style={{ background: C.gold, color: C.bg }}>
                     Browse Menu →
                   </button>
-                )}
-              </div>
-            )}
+                </div>
+              )}
 
-            {/* ── Tier benefits info ──────────────────── */}
-            <TierBenefitsCard currentTier={profile?.tier ?? "bronze"} />
-          </>
-        )}
-      </div>
+              <TierBenefitsCard currentTier={profile?.tier ?? "bronze"} />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── MENU TAB ────────────────────────────────────────── */}
+      {tab === "menu" && (
+        <div className="max-w-lg mx-auto pb-36">
+
+          {/* Table number selector (when no table is known) */}
+          {!tableNumber && (
+            <div className="mx-4 mt-4 p-4 rounded-2xl" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+              <p className="text-sm font-semibold mb-2 flex items-center gap-2" style={{ color: C.text }}>
+                <Hash size={14} style={{ color: C.gold }} /> Enter your table number to order
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="number" min={1} max={99} placeholder="Table no."
+                  value={tableInput} onChange={e => setTableInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") { const n = parseInt(tableInput); if (n > 0) setTableNumber(n); }}}
+                  className="flex-1 px-3 py-2 rounded-xl text-sm text-center font-bold focus:outline-none"
+                  style={{ background: C.elevated, border: `1px solid ${C.border}`, color: C.text }}
+                />
+                <button
+                  onClick={() => { const n = parseInt(tableInput); if (n > 0) setTableNumber(n); }}
+                  className="px-4 py-2 rounded-xl text-sm font-bold transition-all"
+                  style={{ background: C.gold, color: C.bg }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = C.goldDark)}
+                  onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = C.gold)}
+                >
+                  Set
+                </button>
+              </div>
+              <p className="text-xs mt-2" style={{ color: C.faint }}>You can still browse the menu without a table number.</p>
+            </div>
+          )}
+
+          {/* Table confirmed banner */}
+          {tableNumber && (
+            <div className="mx-4 mt-4 flex items-center justify-between px-4 py-2.5 rounded-xl"
+              style={{ background: C.goldDim, border: `1px solid ${C.goldBorder}` }}>
+              <span className="text-sm font-semibold" style={{ color: C.gold }}>🪑 Table {tableNumber}</span>
+              <button onClick={() => { setTableNumber(undefined); setTableInput(""); }}
+                className="text-xs" style={{ color: C.muted }}>Change</button>
+            </div>
+          )}
+
+          {/* Category filter */}
+          {!menuLoading && (
+            <div className="px-4 pt-3 pb-1">
+              <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                {[{ id: "__all__", name: "All" }, ...categories.map(c => ({ id: c.name, name: c.name }))].map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setCatFilter(cat.id)}
+                    className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                    style={catFilter === cat.id
+                      ? { background: C.gold, color: C.bg }
+                      : { background: C.surface, color: C.muted, border: `1px solid ${C.border}` }}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Menu grid */}
+          {menuLoading ? (
+            <div className="flex justify-center py-16"><Loader2 size={28} className="animate-spin" style={{ color: C.gold }} /></div>
+          ) : (
+            <div className="p-4 grid grid-cols-2 gap-3">
+              {displayItems.map(item => {
+                const inCart = cart.find(c => c.menuItemId === item.id);
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => addToCart(item)}
+                    className="relative text-left rounded-2xl overflow-hidden transition-all active:scale-[0.97]"
+                    style={{ background: inCart ? C.goldDim : C.surface, border: `1px solid ${inCart ? C.goldBorder : C.border}` }}
+                  >
+                    {inCart && (
+                      <span className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full text-[11px] font-black flex items-center justify-center shadow-md"
+                        style={{ background: C.gold, color: C.bg }}>{inCart.qty}</span>
+                    )}
+                    {item.imageUrl ? (
+                      <div className="w-full h-28 overflow-hidden">
+                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="px-3 pt-3 text-3xl">{item.emoji}</div>
+                    )}
+                    <div className="p-3 pt-2">
+                      <p className="text-sm font-semibold leading-tight mb-1" style={{ color: C.text }}>{item.name}</p>
+                      <p className="text-sm font-bold" style={{ color: C.gold }}>{fmt(item.price)}</p>
+                    </div>
+                  </button>
+                );
+              })}
+              {displayItems.length === 0 && (
+                <div className="col-span-2 py-12 text-center text-sm" style={{ color: C.faint }}>No items in this category</div>
+              )}
+            </div>
+          )}
+
+          {/* Floating cart bar */}
+          {cartCount > 0 && !showCart && (
+            <div className="fixed bottom-0 left-0 right-0 z-40 p-4 backdrop-blur-md" style={{ background: `${C.bg}f0`, borderTop: `1px solid ${C.border}` }}>
+              <button
+                onClick={() => setShowCart(true)}
+                className="w-full font-bold py-4 rounded-2xl flex items-center justify-between px-5 transition-all active:scale-[0.99]"
+                style={{ background: C.gold, color: C.bg }}
+                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = C.goldDark)}
+                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = C.gold)}
+              >
+                <span className="w-6 h-6 rounded-full text-xs flex items-center justify-center font-black" style={{ background: "rgba(0,0,0,0.2)" }}>{cartCount}</span>
+                <span>View Order</span>
+                <span className="font-black">{fmt(cartTotal)}</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Cart overlay ─────────────────────────────────────── */}
+      {showCart && (
+        <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto" style={{ background: C.bg }}>
+          {/* Cart header */}
+          <div className="sticky top-0 px-4 py-3 flex items-center gap-3 shrink-0 backdrop-blur-md" style={{ background: `${C.bg}f0`, borderBottom: `1px solid ${C.border}` }}>
+            <button onClick={() => setShowCart(false)} style={{ color: C.muted }}
+              onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = C.text)}
+              onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = C.muted)}>
+              <ArrowLeft size={20} />
+            </button>
+            <span className="font-bold" style={{ color: C.text }}>Your Order</span>
+            {tableNumber && <span className="ml-auto text-xs" style={{ color: C.muted }}>Table {tableNumber}</span>}
+          </div>
+
+          {/* No table warning */}
+          {!tableNumber && (
+            <div className="mx-4 mt-4 p-3 rounded-xl flex items-center gap-2" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
+              <Hash size={14} className="text-red-400 shrink-0" />
+              <p className="text-xs text-red-300">Please set your table number on the menu screen before placing an order.</p>
+            </div>
+          )}
+
+          {/* Items */}
+          <div className="flex-1 p-4 space-y-3 pb-40 overflow-y-auto">
+            {cart.map(item => (
+              <div key={item.menuItemId} className="flex items-center gap-3 rounded-2xl p-3" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+                <span className="text-2xl">{item.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: C.text }}>{item.name}</p>
+                  <p className="text-xs" style={{ color: C.gold }}>{fmt(item.price * item.qty)}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={() => changeQty(item.menuItemId, -1)} className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: C.elevated }}>
+                    <Minus size={12} style={{ color: C.muted }} />
+                  </button>
+                  <span className="w-5 text-center text-sm font-bold" style={{ color: C.text }}>{item.qty}</span>
+                  <button onClick={() => changeQty(item.menuItemId, 1)} className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: C.elevated }}>
+                    <Plus size={12} style={{ color: C.muted }} />
+                  </button>
+                </div>
+              </div>
+            ))}
+            <div className="rounded-2xl p-3" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+              <textarea placeholder="Special requests or notes…" value={orderNotes} onChange={e => setOrderNotes(e.target.value)} rows={2}
+                className="w-full bg-transparent text-sm resize-none focus:outline-none" style={{ color: C.text }} />
+            </div>
+          </div>
+
+          {/* Place order bar */}
+          <div className="fixed bottom-0 left-0 right-0 p-4 backdrop-blur-md" style={{ background: `${C.bg}f0`, borderTop: `1px solid ${C.border}` }}>
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-sm" style={{ color: C.muted }}>{cartCount} item{cartCount !== 1 ? "s" : ""}</span>
+              <span className="text-xl font-black" style={{ color: C.gold }}>{fmt(cartTotal)}</span>
+            </div>
+            <button
+              onClick={placeOrder}
+              disabled={placing || !tableNumber}
+              className="w-full font-bold py-4 rounded-2xl text-base transition-all active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{ background: C.gold, color: C.bg }}
+              onMouseEnter={e => !placing && tableNumber && ((e.currentTarget as HTMLButtonElement).style.background = C.goldDark)}
+              onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = C.gold)}
+            >
+              {placing && <Loader2 size={18} className="animate-spin" />}
+              {!tableNumber ? "Set table number first" : "Place Order"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
