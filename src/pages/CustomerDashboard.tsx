@@ -118,6 +118,43 @@ interface Toast {
   icon: React.ReactNode;
 }
 
+// ── Ready-pickup alert type ────────────────────────────────────
+interface ReadyAlert {
+  orderId:     string;
+  orderNumber: number;
+}
+
+// ── Web-Audio chime (no external files needed) ─────────────────
+function playReadySound() {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const tone = (freq: number, start: number, dur: number, vol: number) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(vol, start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
+      osc.start(start);
+      osc.stop(start + dur + 0.05);
+    };
+    const t = ctx.currentTime;
+    // Ascending 4-note chime: C5 → E5 → G5 → C6
+    tone(523.25, t,       0.35, 0.45);
+    tone(659.25, t + 0.18, 0.35, 0.40);
+    tone(783.99, t + 0.36, 0.35, 0.35);
+    tone(1046.5,  t + 0.54, 0.60, 0.50);
+    setTimeout(() => ctx.close(), 3000);
+    // Vibrate on mobile if supported
+    if (navigator.vibrate) navigator.vibrate([150, 80, 150, 80, 300]);
+  } catch { /* silently ignore — audio may be blocked */ }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Main component
 // ═══════════════════════════════════════════════════════════════
@@ -141,6 +178,9 @@ export function CustomerDashboard({
   const [toasts, setToasts]         = useState<Toast[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const prevStatusRef               = useRef<Record<string, string>>({});
+
+  // Ready-pickup alert
+  const [readyAlert, setReadyAlert] = useState<ReadyAlert | null>(null);
 
   // Membership state
   const [membership, setMembership] = useState<CustomerMembership | null>(null);
@@ -371,23 +411,27 @@ export function CustomerDashboard({
       current[order.id] = order.status;
       if (prev[order.id] && prev[order.id] !== order.status) {
         const sm = STATUS_META[order.status];
+
+        // "Ready" → full-screen alert + chime + vibration
+        if (order.status === "ready") {
+          playReadySound();
+          setReadyAlert({ orderId: order.id, orderNumber: order.orderNumber });
+        }
+
         const messages: Record<string, string> = {
           preparing: `Order #${order.orderNumber} is being prepared 👨‍🍳`,
-          ready:     `Order #${order.orderNumber} is ready — come get it! 🔔`,
+          ready:     `Order #${order.orderNumber} is ready — collect it now! 🔔`,
           completed: `Order #${order.orderNumber} complete. Enjoy! ✅`,
           cancelled: `Order #${order.orderNumber} was cancelled.`,
         };
         const msg = messages[order.status];
         if (msg && sm) {
           const toastId = `${order.id}-${order.status}`;
-          const toast: Toast = {
-            id: toastId,
-            message: msg,
-            color: sm.color,
-            icon: sm.icon,
-          };
+          const toast: Toast = { id: toastId, message: msg, color: sm.color, icon: sm.icon };
+          // "ready" toasts stay much longer so they don't vanish while alert is shown
+          const duration = order.status === "ready" ? 60_000 : 6_000;
           setToasts(t => [toast, ...t].slice(0, 5));
-          setTimeout(() => setToasts(t => t.filter(x => x.id !== toastId)), 6000);
+          setTimeout(() => setToasts(t => t.filter(x => x.id !== toastId)), duration);
         }
       }
     });
@@ -528,6 +572,67 @@ export function CustomerDashboard({
   // ══════════════════════════════════════════════════════════════
   return (
     <div className="min-h-screen" style={{ background: C.bg, color: C.text }}>
+
+      {/* ── Ready-pickup alert overlay ───────────────────── */}
+      {readyAlert && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-5"
+          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
+          onClick={() => setReadyAlert(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
+            style={{ border: "2px solid rgba(52,211,153,0.6)" }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Pulsing green header */}
+            <div
+              className="px-6 pt-8 pb-5 text-center"
+              style={{ background: "linear-gradient(160deg, #064e3b 0%, #065f46 100%)" }}
+            >
+              {/* Animated bell */}
+              <div
+                className="text-7xl mb-4 inline-block"
+                style={{ animation: "bellRing 0.6s ease-in-out infinite alternate" }}
+              >
+                🔔
+              </div>
+
+              <p className="text-2xl font-black text-white mb-1">Your order is ready!</p>
+              <p className="font-bold mb-0.5" style={{ color: "#6ee7b7" }}>
+                Order #{readyAlert.orderNumber}
+              </p>
+              <p className="text-sm" style={{ color: "#a7f3d0" }}>
+                Please collect it at the counter ☕
+              </p>
+            </div>
+
+            {/* Action */}
+            <div className="px-6 py-5" style={{ background: "#022c22" }}>
+              <button
+                onClick={() => setReadyAlert(null)}
+                className="w-full py-4 rounded-2xl font-black text-lg transition-all active:scale-[0.98]"
+                style={{ background: "#34d399", color: "#022c22" }}
+                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = "#10b981")}
+                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = "#34d399")}
+              >
+                Got it! ✓
+              </button>
+              <p className="text-center text-xs mt-3" style={{ color: "#6ee7b7" }}>
+                Tap anywhere or press "Got it" to dismiss
+              </p>
+            </div>
+          </div>
+
+          {/* Bell-ring keyframe injected inline */}
+          <style>{`
+            @keyframes bellRing {
+              0%   { transform: rotate(-15deg) scale(1.05); }
+              100% { transform: rotate(15deg)  scale(1.15); }
+            }
+          `}</style>
+        </div>
+      )}
 
       {/* ── Notification toasts ──────────────────────────── */}
       <div className="fixed top-4 right-4 z-50 space-y-2 max-w-xs w-full pointer-events-none">
