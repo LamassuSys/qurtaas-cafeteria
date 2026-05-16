@@ -8,6 +8,7 @@ import {
   Trophy, Zap, History, RefreshCw,
   UtensilsCrossed, Plus, Minus, Loader2, Hash,
   Wallet, Gift, ArrowDownCircle, ArrowUpCircle, AlertTriangle, X,
+  Crown, Coffee, CalendarDays,
 } from "lucide-react";
 
 // ── Brand tokens ───────────────────────────────────────────────
@@ -85,6 +86,19 @@ interface CustomerProfile {
   walletBalance: number;
 }
 
+// ── Membership subscription type ──────────────────────────────
+interface CustomerMembership {
+  id:          string;
+  planId:      string;
+  planName:    string;
+  cupsPerWindow: number;
+  windowHours:   number;
+  status:      string;
+  startDate:   string;
+  endDate:     string;
+  amountPaid:  number;
+}
+
 // ── Wallet transaction type ────────────────────────────────────
 interface WalletTx {
   id:          string;
@@ -127,6 +141,9 @@ export function CustomerDashboard({
   const [toasts, setToasts]         = useState<Toast[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const prevStatusRef               = useRef<Record<string, string>>({});
+
+  // Membership state
+  const [membership, setMembership] = useState<CustomerMembership | null>(null);
 
   // Wallet state
   const [walletTxs,     setWalletTxs]     = useState<WalletTx[]>([]);
@@ -264,8 +281,40 @@ export function CustomerDashboard({
     }
   };
 
+  // ── Fetch active membership ────────────────────────────────
+  const fetchMembership = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from("customer_memberships")
+        .select(`*, membership_plans(name, cups_per_window, window_hours)`)
+        .eq("customer_id", customerId)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        const r   = data as Record<string, unknown>;
+        const plan = (r.membership_plans as Record<string, unknown>) || {};
+        setMembership({
+          id:            r.id         as string,
+          planId:        r.plan_id    as string,
+          planName:      (plan.name   as string) || (r.plan_id as string),
+          cupsPerWindow: Number(plan.cups_per_window ?? 0),
+          windowHours:   Number(plan.window_hours   ?? 0),
+          status:        r.status     as string,
+          startDate:     r.start_date as string,
+          endDate:       r.end_date   as string,
+          amountPaid:    Number(r.amount_paid ?? 0),
+        });
+      } else {
+        setMembership(null);
+      }
+    } catch { /* ignore */ }
+  }, [customerId]);
+
   useEffect(() => {
     fetchProfile();
+    fetchMembership();
     // Real-time: refresh when loyalty trigger updates this customer row
     const ch = supabase.channel(`cust_profile_${customerId}`)
       .on("postgres_changes", {
@@ -273,7 +322,14 @@ export function CustomerDashboard({
         filter: `id=eq.${customerId}`,
       }, fetchProfile)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    // Real-time: refresh membership when it changes
+    const mch = supabase.channel(`cust_membership_${customerId}`)
+      .on("postgres_changes", {
+        event: "*", schema: "public", table: "customer_memberships",
+        filter: `customer_id=eq.${customerId}`,
+      }, fetchMembership)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); supabase.removeChannel(mch); };
   }, [customerId]);
 
   // ── Order status notifications ─────────────────────────────
@@ -491,6 +547,60 @@ export function CustomerDashboard({
                 <StatCard icon={<Zap size={16} />}         label="Points Earned" value={`${(profile?.points ?? 0).toLocaleString()} pts`} sub={`≈ ${fmt(pointsValue)} redeemable`} color="#a78bfa" />
                 <StatCard icon={<Star size={16} />}        label="Avg Order"     value={avgOrderValue ? fmt(avgOrderValue) : "—"}           color="#34d399" />
               </div>
+
+              {/* Active membership plan card */}
+              {membership && (
+                <div className="rounded-2xl p-4 relative overflow-hidden"
+                  style={{
+                    background: membership.planId === "priority"
+                      ? "linear-gradient(135deg, rgba(245,168,0,0.12) 0%, rgba(180,120,0,0.06) 100%)"
+                      : "linear-gradient(135deg, rgba(96,165,250,0.12) 0%, rgba(37,99,235,0.06) 100%)",
+                    border: membership.planId === "priority"
+                      ? "1px solid rgba(245,168,0,0.35)"
+                      : "1px solid rgba(96,165,250,0.35)",
+                  }}>
+                  {/* bg watermark */}
+                  <div className="absolute -right-4 -top-4 opacity-10 pointer-events-none">
+                    {membership.planId === "priority"
+                      ? <Crown size={64} style={{ color: "#f5a800" }} />
+                      : <Star  size={64} style={{ color: "#60a5fa" }} />}
+                  </div>
+                  <div className="relative">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {membership.planId === "priority"
+                          ? <Crown size={16} style={{ color: "#f5a800" }} />
+                          : <Star  size={16} style={{ color: "#60a5fa" }} />}
+                        <p className="font-black text-base" style={{ color: C.text }}>{membership.planName}</p>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full text-xs font-bold"
+                        style={{
+                          background: membership.planId === "priority" ? "rgba(245,168,0,0.15)" : "rgba(96,165,250,0.15)",
+                          color:      membership.planId === "priority" ? "#f5a800" : "#60a5fa",
+                          border:     membership.planId === "priority" ? "1px solid rgba(245,168,0,0.3)" : "1px solid rgba(96,165,250,0.3)",
+                        }}>
+                        Active ✓
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 mt-3">
+                      <div className="flex items-center gap-2 text-sm" style={{ color: C.muted }}>
+                        <Coffee size={13} style={{ color: membership.planId === "priority" ? "#f5a800" : "#60a5fa" }} />
+                        <span>
+                          <strong style={{ color: C.text }}>{membership.cupsPerWindow} cups</strong>
+                          {" "}every <strong style={{ color: C.text }}>{membership.windowHours} hour{membership.windowHours > 1 ? "s" : ""}</strong>
+                          {" "}(coffee, tea, or mix)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm" style={{ color: C.muted }}>
+                        <CalendarDays size={13} style={{ color: C.faint }} />
+                        <span>
+                          Valid until <strong style={{ color: C.text }}>{fmtDate(membership.endDate)}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Wallet quick link */}
               <button
